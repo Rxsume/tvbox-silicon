@@ -71,7 +71,7 @@ public actor SubtitleSearch {
         return last
     }
 
-    private func run(_ hint: SubtitleHint, sources: [SubtitleSearchSource], report: (SubtitleSearchProgress) -> Void) async {
+    private func run(_ hint: SubtitleHint, sources: [SubtitleSearchSource], report: @Sendable (SubtitleSearchProgress) -> Void) async {
         var progress = SubtitleSearchProgress()
         var found: [String: [SubtitleCandidate]] = [:]
         var waiting: [SubtitleSearchSource] = []

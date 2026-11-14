@@ -293,6 +293,22 @@ extension NovelRuntime {
     }
 }
 
+/// The script thread reads only after WebKit has supplied its result.
+private final class NovelWebReply: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = ""
+    func store(_ reply: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        value = reply
+    }
+    func load() -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+}
+
 /// What engine.js asks of the app beyond the TVBox host.
 final class NovelHost: ScriptHostExtension, @unchecked Sendable {
     var allowsRemoteModules: Bool { false }
@@ -307,15 +323,16 @@ final class NovelHost: ScriptHostExtension, @unchecked Sendable {
             #if canImport(WebKit) && !os(tvOS)
             // The script thread waits while the main thread drives WebKit.
             let semaphore = DispatchSemaphore(value: 0)
-            nonisolated(unsafe) var reply = ""
+            let reply = NovelWebReply()
             Task { @MainActor in
                 let options = (try? JSONSerialization.jsonObject(with: Data(argument.utf8))) as? [String: Any] ?? [:]
                 let answer = await NovelWebView.run(options)
-                reply = (try? JSONSerialization.data(withJSONObject: answer)).map { String(decoding: $0, as: UTF8.self) } ?? #"{"failed":"The web view failed."}"#
+                let encoded = (try? JSONSerialization.data(withJSONObject: answer)).map { String(decoding: $0, as: UTF8.self) } ?? #"{"failed":"The web view failed."}"#
+                reply.store(encoded)
                 semaphore.signal()
             }
             semaphore.wait()
-            return .some(reply)
+            return .some(reply.load())
             #else
             return .some(#"{"failed":"This source checks for a web browser, which Apple TV doesn't have. Read it on iPhone, iPad or Mac."}"#)
             #endif
