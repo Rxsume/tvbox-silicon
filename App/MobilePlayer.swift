@@ -91,7 +91,7 @@ struct MobilePlayerView: View {
         ZStack {
             PlayerLayerView(player: session.player, fills: fillsScreen, pip: pip).playerBleed(!inline)
                 // Picture in Picture shows only the player's layer, so AVPlayer draws the subtitles there.
-                .onChange(of: pip.active) { active in session.subtitles.native = active }
+                .ios16OnChange(of: pip.active) { active in session.subtitles.native = active }
             // The enhanced picture covers the layer's own, under everything else.
             EnhancedVideoSurface(enhancer: session.enhancer, fills: fillsScreen, bleeds: !inline)
             if showsDanmaku && !session.danmaku.isEmpty {
@@ -169,23 +169,23 @@ struct MobilePlayerView: View {
             if let brightnessBefore { screen?.brightness = brightnessBefore }
         }
         // Played here again (the Lock Screen, say): the other device no longer has it to itself.
-        .onChange(of: session.paused) { paused in if !paused { playingOn = nil } }
-        .onChange(of: nowPlayingState) { nowPlaying.update(title: channel.name, session: session) }
-        .onChange(of: nowPlayingArtwork) { artwork in nowPlaying.show(artwork, session: session) }
+        .ios16OnChange(of: session.paused) { paused in if !paused { playingOn = nil } }
+        .ios16OnChange(of: nowPlayingState) { nowPlaying.update(title: channel.name, session: session) }
+        .ios16OnChange(of: nowPlayingArtwork) { artwork in nowPlaying.show(artwork, session: session) }
         // Pausing ends the faster speed in the session; another episode or quality plays at the chosen one.
-        .onChange(of: session.boost == nil) { ended in if ended { boost = nil } }
-        .onChange(of: clock.item) { endBoost() }
-        .onChange(of: store.resolvingEpisode?.name) { name in
+        .ios16OnChange(of: session.boost == nil) { ended in if ended { boost = nil } }
+        .ios16OnChange(of: clock.item) { endBoost() }
+        .ios16OnChange(of: store.resolvingEpisode?.name) { name in
             if let name { askedEpisode = name; showEpisodeFailure(nil) }
         }
-        .onChange(of: store.episodeError) { reason in showEpisodeFailure(reason) }
+        .ios16OnChange(of: store.episodeError) { reason in showEpisodeFailure(reason) }
         .task(id: clock.item.map(ObjectIdentifier.init)) { await tracks.load(clock.item) }
-        
+
         // Full screen, the clock and battery come and go with the controls, as in the TV app, so a long video doesn't
         // hide the time (#901); locked, the picture keeps the screen to itself. A watch page shows them above it.
         .statusBarHidden(!inline && (!chromeVisible || locked))
         // A failure, or a watch page's player back from full screen, has controls to reach.
-        .onChange(of: session.error != nil || inline) { unlock in if unlock { setLocked(false) } }
+        .ios16OnChange(of: session.error != nil || inline) { unlock in if unlock { setLocked(false) } }
         .subtitleImport(files: $importsSubtitleFile, address: $asksSubtitleAddress, search: $searchesSubtitles, subtitles: session.externalSubtitles)
         .playerEpisodesSheet(isPresented: $showsEpisodes, channel: channel)
         .sheet(isPresented: $showsDanmakuList) {
@@ -392,10 +392,10 @@ struct MobilePlayerView: View {
             VStack(spacing: 4) {
                 Image(systemName: skipped.forward ? "goforward.10" : "gobackward.10")
                     .font(.system(size: 30, weight: .medium))
-                    
+
                 Text((skipped.forward ? "+" : "\u{2212}") + L10n.text("%lld s", Int(skipped.total)))
                     .font(.footnote.weight(.semibold).monospacedDigit())
-                    .contentTransition(.numericText(value: skipped.total))
+
             }
             .foregroundStyle(.white)
             .frame(width: 96, height: 96)
@@ -451,7 +451,7 @@ struct MobilePlayerView: View {
             // in a player that seemed frozen (#729, #731).
             HStack(spacing: 8) {
                 Image(systemName: locked ? "lock.fill" : "lock.open.fill").font(.headline).frame(width: 22, height: 22)
-                    
+
                 if locked { Text(L10n.text("Unlock Controls")).font(.subheadline.weight(.semibold)).fixedSize() }
             }
         }
@@ -1041,7 +1041,7 @@ private struct SeekBar<Accessory: View>: View {
             if drag == nil { accessory().frame(height: Self.timeRow).transition(.opacity) }
         }
         .animation(.easeOut(duration: 0.15), value: drag == nil)
-        
+
     }
 
     private func bar(_ position: Double) -> some View {

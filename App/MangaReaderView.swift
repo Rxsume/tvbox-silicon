@@ -590,7 +590,7 @@ struct MangaPinchZoom<Content: View>: UIViewRepresentable {
     func makeUIView(context: Context) -> MangaZoomView {
         let host = context.coordinator
         host.view.backgroundColor = .clear
-        host.safeAreaRegions = []
+        if #available(iOS 16.4, *) { host.safeAreaRegions = [] }
         let view = MangaZoomView(content: host.view)
         controller.view = view
         return view

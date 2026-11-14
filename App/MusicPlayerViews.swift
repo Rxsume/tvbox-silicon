@@ -441,6 +441,12 @@ struct MusicChannelsView: View {
 struct MusicSettingsView: View {
     @EnvironmentObject private var store: Store
 
+    var body: some View { MusicSettingsContent(music: store.music) }
+}
+
+private struct MusicSettingsContent: View {
+    @ObservedObject var music: MusicPlaybackSession
+
     /// The channels the recommended sources list, each with the services it plays from; none are part of the app.
     private static var channels: [CloudMusic.Channel] { CloudMusic.current?.channels ?? [] }
     /// The channels that stay off until the listener enters a key.

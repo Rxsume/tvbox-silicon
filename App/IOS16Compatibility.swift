@@ -38,6 +38,32 @@ private struct IOS16ScrollPosition<ID: Hashable>: ViewModifier {
 }
 
 extension View {
+    func ios16OnChange<Value: Equatable>(of value: Value, initial: Bool = false,
+                                        _ action: @escaping (Value) -> Void) -> some View {
+        modifier(IOS16Change(value: value, initial: initial) { _, next in action(next) })
+    }
+    func ios16OnChange<Value: Equatable>(of value: Value, initial: Bool = false,
+                                        _ action: @escaping () -> Void) -> some View {
+        modifier(IOS16Change(value: value, initial: initial) { _, _ in action() })
+    }
+    @ViewBuilder func ios16PresentationCornerRadius(_ radius: CGFloat) -> some View {
+        if #available(iOS 16.4, tvOS 16.4, macOS 13.3, *) { presentationCornerRadius(radius) } else { self }
+    }
+    @ViewBuilder func ios16PresentationBackground(_ color: Color) -> some View {
+        if #available(iOS 16.4, tvOS 16.4, macOS 13.3, *) { presentationBackground(color) } else { self }
+    }
+    @ViewBuilder func ios16ScrollClipDisabled() -> some View {
+        if #available(iOS 17, tvOS 17, macOS 14, *) { scrollClipDisabled() } else { self }
+    }
+    @ViewBuilder func ios16DefaultFocus<Value: Hashable>(_ binding: FocusState<Value>.Binding, _ value: Value) -> some View {
+        if #available(iOS 17, tvOS 17, macOS 14, *) { defaultFocus(binding, value) } else { self }
+    }
+    func ios16NavigationDestination<Item: Hashable, Destination: View>(item: Binding<Item?>,
+        @ViewBuilder destination: @escaping (Item) -> Destination) -> some View {
+        navigationDestination(isPresented: Binding(get: { item.wrappedValue != nil }, set: { if !$0 { item.wrappedValue = nil } })) {
+            if let value = item.wrappedValue { destination(value) }
+        }
+    }
     @ViewBuilder func ios16ScrollLayout() -> some View {
         if #available(iOS 17, tvOS 17, macOS 14, *) { scrollTargetLayout() } else { self }
     }

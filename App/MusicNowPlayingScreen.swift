@@ -51,8 +51,7 @@ struct MusicNowPlayingScreen: View {
         .background { sheetBackdrop.ignoresSafeArea() }
         .environment(\.colorScheme, .dark)
         .presentationDragIndicator(.visible)
-        
-        .presentationCornerRadius(Self.shapesOwnSheet ? 0 : nil)
+        .modifier(SheetCorners(radius: Self.shapesOwnSheet ? 0 : nil))
         .task(id: music.track?.artwork) {
             guard let url = music.track?.artwork, let color = await PosterPalette.average(url) else { return }
             withAnimation(.easeInOut(duration: 0.6)) { tint = color }

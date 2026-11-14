@@ -70,7 +70,7 @@ struct DanmakuCanvas: View {
             let filter = filter
             engine.load(filter.apply(comments), revision: "\(revision)|\(filter.colors)|\(DanmakuFilter.stored(filter.words))")
         }
-        .onChange(of: jumps) { engine.reset() }
+        .ios16OnChange(of: jumps) { engine.reset() }
     }
 }
 
@@ -543,8 +543,8 @@ struct DanmakuListView: View {
             }
             .animation(.easeInOut(duration: 0.3), value: following)
             .onAppear { follow(proxy, animated: false) }
-            .onChange(of: now) { _ in if following { follow(proxy, animated: true) } }
-            .onChange(of: query) { text in if text.isEmpty { follow(proxy, animated: false) } }
+            .ios16OnChange(of: now) { _ in if following { follow(proxy, animated: true) } }
+            .ios16OnChange(of: query) { text in if text.isEmpty { follow(proxy, animated: false) } }
         }
     }
 
@@ -682,7 +682,7 @@ extension View {
         self.presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
             
-            .presentationCornerRadius(28)
+            .ios16PresentationCornerRadius(28)
             .preferredColorScheme(.dark)
         #else
         self.frame(width: 520, height: 640)

@@ -37,7 +37,7 @@ struct DownloadsView: View {
         .screenBackdrop()
         .tabTitle(L10n.text("Offline Cache"))
         .task { await library.measure() }
-        .onChange(of: library.items.filter { $0.status == .completed }.count) { Task { await library.measure() } }
+        .ios16OnChange(of: library.items.filter { $0.status == .completed }.count) { Task { await library.measure() } }
         #if os(macOS)
         // Space in one line under the window title, as Finder's status bar has it: beside a whole disk the
         // downloads were a sliver on a bar that was nearly all "Other".
@@ -821,7 +821,7 @@ struct DownloadShowPage: View {
         .screenBackdrop()
         .screenTitle(show.map { artwork.details(for: $0)?.name ?? $0.title } ?? "")
         // Its last episode deleted: back to Downloads.
-        .onChange(of: show == nil) { gone in if gone { dismiss() } }
+        .ios16OnChange(of: show == nil) { gone in if gone { dismiss() } }
         .task { if let show { await artwork.load([show]) } }
         .confirmationDialog(L10n.text("Delete all cached episodes of %@?", show?.title ?? ""), isPresented: $deleting, titleVisibility: .visible) {
             Button(L10n.text("Delete Cached Items"), role: .destructive) {

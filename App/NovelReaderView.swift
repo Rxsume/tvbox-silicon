@@ -1137,7 +1137,7 @@ private struct NovelReaderContents: View {
         }
         .environment(\.colorScheme, dark ? .dark : .light)
         #if !os(tvOS)
-        .presentationBackground(colors.background)
+        .ios16PresentationBackground(colors.background)
         #endif
         #if os(macOS)
         .frame(minWidth: 460, minHeight: 560)

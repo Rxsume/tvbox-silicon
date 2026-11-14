@@ -382,7 +382,7 @@ struct NovelShelfRow<Item: Identifiable>: View {
                 }
                 .padding(.horizontal, DiscoverLayout.gutter)
             }
-            .scrollClipDisabled()
+            .ios16ScrollClipDisabled()
         }
         #endif
     }

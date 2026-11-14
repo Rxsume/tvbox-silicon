@@ -33,7 +33,7 @@ struct DiscoverDetailView: View {
         .onAppear { onScreen = true }
         .onDisappear { onScreen = false }
         .task(id: item.key) { await model.load(item) }
-        .onChange(of: details?.id) { _ in
+        .ios16OnChange(of: details?.id) { _ in
             if seasonNumber == nil { seasonNumber = seasons.first?.number }
         }
         .task(id: seasonNumber) { await loadSeason() }
@@ -514,11 +514,11 @@ struct DiscoverSearchPresentation: ViewModifier {
         content.fullScreenCover(isPresented: $isPresented) { DiscoverSearchView().environmentObject(store) }
             // Search Sources on a detail page opened from here switches to the Search tab, which is behind this
             // full-screen sheet: close it so the source results show instead of the catalog search.
-            .onChange(of: store.section) { if isPresented { isPresented = false } }
+            .ios16OnChange(of: store.section) { if isPresented { isPresented = false } }
         #else
         // A page of its own (Back returns), rather than the iPhone's full-screen sheet: on the Mac with the toolbar's
         // search field, on the TV laid out for the remote.
-        content.onChange(of: isPresented) { shown in
+        content.ios16OnChange(of: isPresented) { shown in
             guard shown else { return }
             isPresented = false
             #if os(macOS)

@@ -81,7 +81,7 @@ struct SitesView: View {
                     }.pageContainer()
                 }
                 // Picking opens on the current choice rather than the top of a long page.
-                .defaultFocus($focusedSite, picked)
+                .ios16DefaultFocus($focusedSite, picked)
                 .onAppear { if pick != nil, let picked { proxy.scrollTo(picked, anchor: .center) } }
                 }
                 .sheet(isPresented: $arranging) { SourceOrderEditor(sites: sites, automatic: store.automaticSites(config)) }
