@@ -120,6 +120,8 @@ struct DiscoverBackdrop: View {
     /// Mac: the floating sidebar's width, which the split view reports as a leading inset.
     @State private var leadingInset: CGFloat = 0
     var body: some View {
+        let travel = max(0, scrollY)
+        let fade: CGFloat = heroHeight > 0 ? max(0, 1 - travel / heroHeight) : 0
         #if os(tvOS)
         ZStack(alignment: .top) {
             Color(red: 0.018, green: 0.028, blue: 0.035)
@@ -135,8 +137,8 @@ struct DiscoverBackdrop: View {
                 LinearGradient(stops: [.init(color: .clear, location: 0.35), .init(color: Color(red: 0.018, green: 0.028, blue: 0.035), location: 1)], startPoint: .top, endPoint: .bottom)
             }
             .frame(width: width, height: heroHeight)
-            .offset(y: -max(0, scrollY) * 0.6)
-            .opacity(max(0, 1 - max(0, scrollY) / heroHeight))
+            .offset(y: -travel * 0.6)
+            .opacity(fade)
         }.ignoresSafeArea().accessibilityHidden(true).allowsHitTesting(false)
         #else
         ZStack(alignment: .top) {
