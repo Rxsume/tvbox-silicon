@@ -67,7 +67,9 @@ public actor SubtitleSearch {
     /// The search, all at once (for tests and callers that don't show progress).
     public func results(_ hint: SubtitleHint, sources: [SubtitleSearchSource]) async -> SubtitleSearchProgress {
         var last = SubtitleSearchProgress()
-        await run(hint, sources: sources) { last = $0 }
+        for await progress in search(hint, sources: sources) {
+            last = progress
+        }
         return last
     }
 
