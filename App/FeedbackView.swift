@@ -283,7 +283,7 @@ private struct FeedbackPage: View {
             .padding(.horizontal, compact ? Layout.gutter : 32).padding(.top, compact ? 20 : 32).padding(.bottom, 40)
             .frame(maxWidth: Layout.settingsWidth)
             .frame(maxWidth: .infinity)
-            .animation(.smooth(duration: 0.35), value: sent)
+            .animation(.easeInOut(duration: 0.35), value: sent)
         }
         #if os(iOS)
         .scrollDismissesKeyboard(.interactively)

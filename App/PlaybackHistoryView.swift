@@ -31,7 +31,7 @@ struct PlaybackHistoryView: View {
         // The page's actions live in the bar and, while managing, on a floating bar: both are the system's Liquid Glass.
         .toolbar { if !history.entries.isEmpty { barActions } }
         .safeAreaInset(edge: .bottom, spacing: 0) { if managing { selectionBar.transition(.move(edge: .bottom).combined(with: .opacity)) } }
-        .animation(.smooth(duration: 0.25), value: managing)
+        .animation(.easeInOut(duration: 0.25), value: managing)
         #endif
         .onChange(of: history.entries.isEmpty) { empty in if empty { managing = false; selected.removeAll() } }
         #if DEBUG
@@ -236,7 +236,7 @@ struct HistoryCard: View {
         }
         #if !os(tvOS)
         .onHover { hovering = $0 }
-        .animation(.smooth(duration: 0.15), value: hovering)
+        .animation(.easeInOut(duration: 0.15), value: hovering)
         #endif
     }
 

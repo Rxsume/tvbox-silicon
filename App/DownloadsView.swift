@@ -482,7 +482,7 @@ private struct QueueRow: View {
                         }
                 }
                 .frame(height: 4).padding(.vertical, 2)
-                .animation(.smooth, value: item.fraction)
+                .animation(.easeInOut, value: item.fraction)
                 .accessibilityHidden(true)
                 Text(status(compact: false)).font(.caption).monospacedDigit().lineLimit(1)
                     .foregroundStyle(item.status == .failed ? AnyShapeStyle(Brand.rose) : AnyShapeStyle(.secondary))
@@ -671,7 +671,7 @@ extension View {
             let key = show.tmdbKey
             tried.insert(key)
             if let entry = await Self.resolve(show) {
-                withAnimation(.smooth(duration: 0.35)) { entries[key] = entry }
+                withAnimation(.easeInOut(duration: 0.35)) { entries[key] = entry }
             } else if Task.isCancelled {
                 // The page closed during the lookup: try again when it opens.
                 tried.remove(key)
@@ -1005,7 +1005,7 @@ struct DownloadState: View {
             }
         }
         .font(.system(size: size))
-        .animation(.smooth, value: fraction)
+        .animation(.easeInOut, value: fraction)
     }
 }
 

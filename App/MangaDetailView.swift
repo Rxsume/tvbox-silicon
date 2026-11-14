@@ -182,7 +182,7 @@ struct MangaDetailView: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { withAnimation(.smooth) { expanded.toggle() } }
+        .onTapGesture { withAnimation(.easeInOut) { expanded.toggle() } }
     }
     #endif
 
@@ -218,7 +218,7 @@ struct MangaDetailView: View {
             HStack {
                 if chapters.count > 1 {
                     // As the episode lists: the heading turns the list around, its arrow showing the order.
-                    Button { withAnimation(.smooth) { newestFirst.toggle() } } label: {
+                    Button { withAnimation(.easeInOut) { newestFirst.toggle() } } label: {
                         HStack(spacing: 10) {
                             Image(systemName: newestFirst ? "arrow.down" : "arrow.up")
                             Text(L10n.text("Chapters"))
@@ -272,7 +272,7 @@ struct MangaDetailView: View {
                 if chapters.count > 1 {
                     // As Apple TV's episode lists: an arrow, up for the first chapter first, down for the newest; it turns
                     // over and the chapters move to their new places.
-                    Button { withAnimation(.smooth(duration: 0.4)) { newestFirst.toggle() } } label: {
+                    Button { withAnimation(.easeInOut(duration: 0.4)) { newestFirst.toggle() } } label: {
                         Image(systemName: newestFirst ? "arrow.down" : "arrow.up")
                             .font(.subheadline.weight(.bold))
                             
@@ -367,7 +367,7 @@ struct MangaDetailView: View {
         .navigationTitle("")
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .animation(.smooth(duration: 0.3), value: details != nil)
+        .animation(.easeInOut(duration: 0.3), value: details != nil)
         .task(id: coverURL) { await loadHeroCover() }
     }
 
@@ -394,7 +394,7 @@ struct MangaDetailView: View {
                 .buttonStyle(.plain)
                 .disabled(details == nil).opacity(details == nil ? 0.6 : 1)
                 .accessibilityIdentifier("manga.read")
-                Button { withAnimation(.smooth) { store.toggleFavorite(current) } } label: {
+                Button { withAnimation(.easeInOut) { store.toggleFavorite(current) } } label: {
                     Image(systemName: saved ? "heart.fill" : "heart").font(.system(size: 21))
                         .foregroundStyle(saved ? AnyShapeStyle(Brand.rose) : AnyShapeStyle(.white))
                         
@@ -467,7 +467,7 @@ struct MangaDetailView: View {
         .environment(\.colorScheme, .dark)
         .navigationTitle(macPastHero ? current.title : "")
         .artUnderToolbar()
-        .animation(.smooth(duration: 0.3), value: details != nil)
+        .animation(.easeInOut(duration: 0.3), value: details != nil)
         .task(id: coverURL) { await loadHeroCover() }
     }
 
@@ -519,7 +519,7 @@ struct MangaDetailView: View {
             .accessibilityIdentifier("manga.read")
             HStack(alignment: .top, spacing: 6) {
                 MacPlate(symbol: "heart", caption: saved ? L10n.text("Saved") : L10n.text("Favorite"), on: saved, id: "manga.favorite") {
-                    withAnimation(.smooth) { store.toggleFavorite(current) }
+                    withAnimation(.easeInOut) { store.toggleFavorite(current) }
                 }
                 if progress != nil, !chapters.isEmpty {
                     MacPlate(symbol: "arrow.counterclockwise", caption: L10n.text("Start Over"), id: "manga.startOver") {

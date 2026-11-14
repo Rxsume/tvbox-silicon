@@ -180,10 +180,10 @@ struct MangaReaderView: View {
             #if DEBUG
             if UserDefaults.standard.bool(forKey: "qaMangaChrome") { return }
             #endif
-            withAnimation(.smooth) { chrome = false }
+            withAnimation(.easeInOut) { chrome = false }
         }
         .onDisappear { model.save(force: true) }
-        .environment(\.mangaToggleChrome, MangaChromeToggle { withAnimation(.smooth(duration: 0.2)) { chrome.toggle() } })
+        .environment(\.mangaToggleChrome, MangaChromeToggle { withAnimation(.easeInOut(duration: 0.2)) { chrome.toggle() } })
     }
 
     @ViewBuilder private var pages: some View {
@@ -300,7 +300,7 @@ struct MangaVerticalReader: View {
                 .simultaneousGesture(MagnifyGesture()
                     .onChanged { value in pinch = value.magnification }
                     .onEnded { value in zoom = min(4, max(1, zoom * value.magnification)); pinch = 1 })
-                .onTapGesture(count: 2) { withAnimation(.smooth) { zoom = zoom > 1 ? 1 : 2 } }
+                .onTapGesture(count: 2) { withAnimation(.easeInOut) { zoom = zoom > 1 ? 1 : 2 } }
                 .onTapGesture { toggleChrome?() }
                 #endif
             #endif
@@ -473,7 +473,7 @@ struct MangaPagedReader: View {
             return
         }
         guard next <= count else { return }
-        withAnimation(.smooth(duration: 0.18)) { page = next }
+        withAnimation(.easeInOut(duration: 0.18)) { page = next }
     }
 
     #if !os(tvOS)
@@ -773,7 +773,7 @@ private struct MangaReaderChrome: View {
         }
         .opacity(visible ? 1 : 0)
         .allowsHitTesting(visible)
-        .animation(.smooth(duration: 0.2), value: visible)
+        .animation(.easeInOut(duration: 0.2), value: visible)
         #if os(macOS)
         .ignoresSafeArea(.container, edges: .top)
         .background { ReaderHidesWindowButtons() }

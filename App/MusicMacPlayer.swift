@@ -463,7 +463,7 @@ struct MusicMacNowPlaying: View {
                 ForEach([MusicNowPlayingPanel.lyrics, .queue], id: \.self) { panel in
                     MusicMacButton(symbol: panel == .lyrics ? "quote.bubble" : "list.bullet", label: panel == .lyrics ? "Lyrics" : "Up Next",
                                    size: 13, on: music.nowPlayingPanel == panel, frame: 30) {
-                        withAnimation(.smooth(duration: 0.3)) { music.nowPlayingPanel = panel }
+                        withAnimation(.easeInOut(duration: 0.3)) { music.nowPlayingPanel = panel }
                     }
                 }
             }

@@ -119,7 +119,7 @@ struct RootView: View {
             .onChange(of: store.section) { detailPath = NavigationPath() }
             .onChange(of: store.hidesSidebar) { hide in
                 if hide { columnsBefore = columns }
-                withAnimation(.smooth(duration: 0.3)) { columns = hide ? .detailOnly : columnsBefore }
+                withAnimation(.easeInOut(duration: 0.3)) { columns = hide ? .detailOnly : columnsBefore }
             }
             .overlay {
                 if nowPlayingShown { MusicMacNowPlaying().ignoresSafeArea().transition(.move(edge: .bottom)) }
@@ -528,7 +528,7 @@ private struct SidebarRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .animation(.smooth(duration: 0.15), value: hovering)
+        .animation(.easeInOut(duration: 0.15), value: hovering)
         .keyboardShortcut(shortcut.map { KeyboardShortcut(KeyEquivalent($0), modifiers: .command) })
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }

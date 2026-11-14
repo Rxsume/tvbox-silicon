@@ -565,8 +565,8 @@ struct LiftButtonStyle: ButtonStyle {
         var body: some View {
             configuration.label
                 .opacity(configuration.isPressed ? 0.72 : (hovering ? 0.88 : 1))
-                .animation(.smooth(duration: 0.22), value: hovering)
-                .animation(.smooth(duration: 0.15), value: configuration.isPressed)
+                .animation(.easeInOut(duration: 0.22), value: hovering)
+                .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
                 #if !os(tvOS)
                 .onHover { hovering = $0 }
                 #endif
@@ -665,7 +665,7 @@ private struct TVChipStyle: ButtonStyle {
                 .scaleEffect(configuration.isPressed ? 0.97 : focused ? lift : 1)
                 .shadow(color: .black.opacity(focused ? 0.35 : 0), radius: 16, y: 10)
                 .animation(.easeOut(duration: 0.18), value: focused)
-                .animation(.smooth(duration: 0.2), value: selected)
+                .animation(.easeInOut(duration: 0.2), value: selected)
         }
         private var glass: GlassStyle {
             if focused { return .regular.tint(.white.opacity(0.9)).interactive() }
@@ -1227,7 +1227,7 @@ struct LoadingCard: View {
                     ProgressView().frame(maxWidth: maxWidth).padding(.vertical, 14).transition(.opacity)
                 }
             }
-            .animation(.smooth(duration: 0.3), value: speaks)
+            .animation(.easeInOut(duration: 0.3), value: speaks)
         }
     }
 
@@ -1263,8 +1263,8 @@ struct LoadingCard: View {
         .frame(maxWidth: maxWidth, alignment: .leading)
         .glassSurface(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .accessibilityElement(children: .combine)
-        .animation(.smooth(duration: 0.25), value: state.title)
-        .animation(.smooth(duration: 0.25), value: explains)
+        .animation(.easeInOut(duration: 0.25), value: state.title)
+        .animation(.easeInOut(duration: 0.25), value: explains)
     }
 }
 

@@ -129,7 +129,7 @@ struct TabBarPreview: View {
         }
         .padding(.horizontal, 6).padding(.vertical, 8)
         .glassSurface(.regular, in: Capsule())
-        .animation(.smooth(duration: 0.3), value: bar)
+        .animation(.easeInOut(duration: 0.3), value: bar)
         .accessibilityElement(children: .combine)
     }
 }
@@ -376,7 +376,7 @@ private struct TabBarEditor: View {
                 Button(L10n.text("Done")) { save(tabs); dismiss() }.fontWeight(.semibold)
             }
             ToolbarItem(placement: .bottomBar) {
-                Button(L10n.text("Reset")) { withAnimation(.smooth) { rows = Row.rows(standard, sidebar: sidebar) } }
+                Button(L10n.text("Reset")) { withAnimation(.easeInOut) { rows = Row.rows(standard, sidebar: sidebar) } }
                     .disabled(tabs == standard)
             }
         }
@@ -393,7 +393,7 @@ private struct TabBarEditor: View {
         next.move(fromOffsets: source, toOffset: destination)
         let tabs = Row.tabs(next, slots: slots)
         guard !tabs.bar.isEmpty else { return } // The tab bar keeps at least one section besides More.
-        withAnimation(.smooth) { rows = Row.rows(tabs, sidebar: sidebar) }
+        withAnimation(.easeInOut) { rows = Row.rows(tabs, sidebar: sidebar) }
     }
 }
 #endif

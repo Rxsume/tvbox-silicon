@@ -151,13 +151,13 @@ struct NovelChapterList: View {
                         Text(L10n.text("%lld chapters", count)).font(.callout).foregroundStyle(colors.text.opacity(0.45))
                     }
                     VStack(alignment: .leading, spacing: 18) {
-                        Button { withAnimation(.smooth) { newestFirst.toggle() } } label: {
+                        Button { withAnimation(.easeInOut) { newestFirst.toggle() } } label: {
                             Label(newestFirst ? L10n.text("Newest First") : L10n.text("Oldest First"), systemImage: "arrow.up.arrow.down")
                         }
                         .controlButton()
                         if let current, chapters.indices.contains(current) {
                             Button {
-                                withAnimation(.smooth) { proxy.scrollTo(current, anchor: .center) }
+                                withAnimation(.easeInOut) { proxy.scrollTo(current, anchor: .center) }
                                 focusedRow = current
                             } label: { Label(L10n.text("Current Chapter"), systemImage: "book") }
                             .controlButton()
@@ -228,7 +228,7 @@ struct NovelChapterList: View {
                     if query.isEmpty { header(proxy) }
                     let shown = shown
                     if shown.isEmpty, !query.isEmpty {
-                        ContentUnavailableView.search(text: query).padding(.top, 40)
+                        Text(L10n.text("No results")).padding(.top, 40)
                     }
                     ForEach(shown) { section in
                         if let title = section.title { volume(title) }
@@ -275,13 +275,13 @@ struct NovelChapterList: View {
             }
             HStack(spacing: 10) {
                 pill(newestFirst ? L10n.text("Newest First") : L10n.text("Oldest First"), symbol: "arrow.up.arrow.down") {
-                    withAnimation(.smooth) { newestFirst.toggle() }
+                    withAnimation(.easeInOut) { newestFirst.toggle() }
                 }
                 .accessibilityHint(L10n.text("Reverse Order"))
                 Spacer(minLength: 0)
                 if let current, chapters.indices.contains(current) {
                     pill(L10n.text("Current Chapter"), symbol: "book") {
-                        withAnimation(.smooth) { proxy.scrollTo(current, anchor: .center) }
+                        withAnimation(.easeInOut) { proxy.scrollTo(current, anchor: .center) }
                     }
                 }
             }
@@ -413,7 +413,7 @@ struct NovelChapterGrid: View {
             heading
             let shown = shown
             if shown.isEmpty, !query.isEmpty {
-                ContentUnavailableView.search(text: query).frame(maxWidth: .infinity).padding(.vertical, 30)
+                Text(L10n.text("No results")).frame(maxWidth: .infinity).padding(.vertical, 30)
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 14, alignment: .leading)], alignment: .leading, spacing: 0) {
                 ForEach(shown) { section in
@@ -449,10 +449,10 @@ struct NovelChapterGrid: View {
             Text(L10n.text("Chapters")).font(.title3.weight(.bold))
             Text("\(count)").font(.subheadline).monospacedDigit().foregroundStyle(.secondary)
             if count > 1 {
-                Button { withAnimation(.smooth(duration: 0.4)) { newestFirst.toggle() } } label: {
+                Button { withAnimation(.easeInOut(duration: 0.4)) { newestFirst.toggle() } } label: {
                     Image(systemName: newestFirst ? "arrow.down" : "arrow.up")
                         .font(.subheadline.weight(.bold))
-                        .contentTransition(.symbolEffect(.replace))
+                        
                         .frame(width: 30, height: 30)
                         .glassOrFill(.regular.interactive(), Color.primary.opacity(0.07), in: Circle())
                         .contentShape(Circle())
@@ -480,7 +480,7 @@ struct NovelChapterGrid: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .leading)))
             } else {
                 Button {
-                    withAnimation(.smooth(duration: 0.3)) { searching = true }
+                    withAnimation(.easeInOut(duration: 0.3)) { searching = true }
                     searchFocused = true
                 } label: {
                     Image(systemName: "magnifyingglass")
@@ -500,7 +500,7 @@ struct NovelChapterGrid: View {
 
     private func closeSearch() {
         query = ""
-        withAnimation(.smooth(duration: 0.3)) { searching = false }
+        withAnimation(.easeInOut(duration: 0.3)) { searching = false }
     }
 }
 
@@ -567,9 +567,9 @@ struct NovelChapterTVGrid: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 26) {
             HStack {
-                Button { withAnimation(.smooth) { newestFirst.toggle() } } label: {
+                Button { withAnimation(.easeInOut) { newestFirst.toggle() } } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: newestFirst ? "arrow.down" : "arrow.up").contentTransition(.symbolEffect(.replace))
+                        Image(systemName: newestFirst ? "arrow.down" : "arrow.up")
                         Text(L10n.text("Chapters"))
                         Text("\(count)").monospacedDigit().foregroundStyle(.secondary)
                     }

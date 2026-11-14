@@ -150,7 +150,7 @@ struct MobilePlayerView: View {
                     .padding(.top, chromeVisible && !inline ? topRowHeight + 12 : 0)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .opacity(chromeVisible && inline ? 0 : 1)
-                    .animation(.smooth(duration: 0.25), value: chromeVisible)
+                    .animation(.easeInOut(duration: 0.25), value: chromeVisible)
             }
             controls.opacity(chromeVisible && !locked ? 1 : 0).allowsHitTesting(chromeVisible && !locked && !settling)
             if !inline { lockButton }
@@ -242,7 +242,7 @@ struct MobilePlayerView: View {
             hideChrome()
             session.skip(seconds)
             nowPlaying.update(title: channel.name, session: session)
-            withAnimation(.snappy(duration: 0.25)) { skipped = (seconds > 0, total) }
+            withAnimation(.easeInOut(duration: 0.25)) { skipped = (seconds > 0, total) }
             skippedTask?.cancel()
             skippedTask = Task {
                 try? await Task.sleep(for: .seconds(PictureTaps.streak + 0.1))
@@ -642,7 +642,7 @@ struct MobilePlayerView: View {
             PlayerTitleLogo(channel: channel, compact: verticalSizeClass != .compact && horizontalSizeClass == .compact)
             Spacer(minLength: 0)
             PlaybackBadges(session: session, active: chromeVisible) {
-                withAnimation(.smooth(duration: 0.25)) { showsPlaybackInfo.toggle() }
+                withAnimation(.easeInOut(duration: 0.25)) { showsPlaybackInfo.toggle() }
                 poke()
             }
         }
@@ -957,7 +957,7 @@ struct WaitSpinner: View {
                     }
                     .padding(.horizontal, 24).padding(.bottom, 12)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .animation(.smooth(duration: 0.45), value: speaks)
+                    .animation(.easeInOut(duration: 0.45), value: speaks)
                 }
             }
         }

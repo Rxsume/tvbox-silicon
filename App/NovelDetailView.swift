@@ -16,7 +16,7 @@ struct NovelReading: Identifiable {
 struct NovelDetailView: View {
     @State private var book: NovelBook
     @State private var alternatives: [NovelBook]
-    @State private var store = NovelStore.shared
+    @ObservedObject private var store = NovelStore.shared
     @State private var details: NovelBook?
     @State private var chapters: [NovelChapter] = []
     @State private var failure: String?
@@ -46,7 +46,7 @@ struct NovelDetailView: View {
             .task(id: book.id) { await load() }
             .task(id: current.cover) { await loadHeroCover() }
             #if os(macOS)
-            .onChange(of: reading?.id) { _, _ in
+            .ios16OnChange(of: reading?.id) { _, _ in
                 if let reading { openRoute?(Route { AnyView(NovelReaderView(reading: reading)) }); self.reading = nil }
             }
             #else
@@ -177,7 +177,7 @@ struct NovelDetailView: View {
             if !expanded, text.count > 80 { Text(L10n.text("More")).font(.callout.weight(.semibold)) }
         }
         .contentShape(Rectangle())
-        .onTapGesture { withAnimation(.smooth) { expanded.toggle() } }
+        .onTapGesture { withAnimation(.easeInOut) { expanded.toggle() } }
     }
 
     // MARK: Pages
@@ -213,7 +213,7 @@ struct NovelDetailView: View {
         .navigationTitle("")
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .animation(.smooth(duration: 0.3), value: chapters.isEmpty)
+        .animation(.easeInOut(duration: 0.3), value: chapters.isEmpty)
     }
 
     /// iPad, as the Mac's page: the cover large in the hero's corner over a blur of itself, the title, Read and the plates
@@ -271,7 +271,7 @@ struct NovelDetailView: View {
             .disabled(chapters.isEmpty).opacity(chapters.isEmpty ? 0.6 : 1)
             .accessibilityIdentifier("novel.read")
             HStack(alignment: .top, spacing: 6) {
-                Button { withAnimation(.smooth) { toggleShelf() } } label: {
+                Button { withAnimation(.easeInOut) { toggleShelf() } } label: {
                     // The plate adds ".fill" when on.
                     WatchPlateLabel(symbol: shelved ? "books.vertical" : "plus", caption: shelved ? L10n.text("On Bookshelf") : L10n.text("Add to Bookshelf"),
                                     on: shelved, tint: Brand.accent)
@@ -317,10 +317,10 @@ struct NovelDetailView: View {
                 .buttonStyle(.plain)
                 .disabled(chapters.isEmpty).opacity(chapters.isEmpty ? 0.6 : 1)
                 .accessibilityIdentifier("novel.read")
-                Button { withAnimation(.smooth) { toggleShelf() } } label: {
+                Button { withAnimation(.easeInOut) { toggleShelf() } } label: {
                     Image(systemName: shelved ? "books.vertical.fill" : "plus").font(.system(size: 20))
                         .foregroundStyle(shelved ? AnyShapeStyle(Brand.accent) : AnyShapeStyle(.white))
-                        .contentTransition(.symbolEffect(.replace))
+                        
                         .frame(width: 54, height: 54).glassSurface(.regular, in: Circle()).contentShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -391,7 +391,7 @@ struct NovelDetailView: View {
         .environment(\.colorScheme, .dark)
         .navigationTitle(macPastHero ? current.name : "")
         .artUnderToolbar()
-        .animation(.smooth(duration: 0.3), value: chapters.isEmpty)
+        .animation(.easeInOut(duration: 0.3), value: chapters.isEmpty)
     }
 
     private var macActions: some View {
@@ -412,7 +412,7 @@ struct NovelDetailView: View {
                 // The plate adds ".fill" when on: "books.vertical.fill" here asked for a symbol that doesn't exist.
                 MacPlate(symbol: shelved ? "books.vertical" : "plus", caption: shelved ? L10n.text("On Bookshelf") : L10n.text("Add to Bookshelf"),
                          on: shelved, tint: Brand.accent, id: "novel.shelf") {
-                    withAnimation(.smooth) { toggleShelf() }
+                    withAnimation(.easeInOut) { toggleShelf() }
                 }
                 if entry?.started == true, !chapters.isEmpty {
                     MacPlate(symbol: "arrow.counterclockwise", caption: L10n.text("Start Over"), id: "novel.startOver") {
@@ -462,7 +462,7 @@ struct NovelDetailView: View {
         .scrollClipDisabled()
         .background(Color.black.ignoresSafeArea())
         .environment(\.colorScheme, .dark)
-        .animation(.smooth(duration: 0.3), value: chapters.isEmpty)
+        .animation(.easeInOut(duration: 0.3), value: chapters.isEmpty)
     }
 
     private var tvActions: some View {
@@ -540,7 +540,7 @@ extension View {
 struct NovelTOCView: View {
     let book: NovelBook
     let chapters: [NovelChapter]
-    @State private var store = NovelStore.shared
+    @ObservedObject private var store = NovelStore.shared
     @State private var reading: NovelReading?
     @Environment(\.openRoute) private var openRoute
 
@@ -551,7 +551,7 @@ struct NovelTOCView: View {
             .background { Backdrop() }
             .screenTitle(L10n.text("Contents"))
             #if os(macOS)
-            .onChange(of: reading?.id) { _, _ in
+            .ios16OnChange(of: reading?.id) { _, _ in
                 if let reading { openRoute?(Route { AnyView(NovelReaderView(reading: reading)) }); self.reading = nil }
             }
             #else
@@ -573,7 +573,7 @@ struct NovelSourcePicker: View {
     let book: NovelBook
     let alternatives: [NovelBook]
     let pick: (NovelBook) -> Void
-    @State private var store = NovelStore.shared
+    @ObservedObject private var store = NovelStore.shared
     @State private var found: [NovelBook] = []
     @State private var searching = false
     @State private var searched = 0

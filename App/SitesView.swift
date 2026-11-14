@@ -138,7 +138,7 @@ struct SitesView: View {
     private func groupHeader(_ group: SourceGroup) -> some View {
         let open = !collapsed.contains(group.id)
         let header = Button {
-            withAnimation(.snappy(duration: 0.3)) {
+            withAnimation(.easeInOut(duration: 0.3)) {
                 if open { collapsed.insert(group.id) } else { collapsed.remove(group.id) }
             }
             // A search opens every group for the moment; only the page's own fold is kept.
@@ -424,7 +424,7 @@ struct HiddenSourceBanner: View {
             Text(L10n.text("It stays out of Watch Now and search. Hidden sources are listed at the end of the Sources page."))
                 .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
-        let button = Button { withAnimation(.smooth) { store.hiddenSources.toggle(site, origin: origin) } } label: { Text(L10n.text("Unhide Source")) }
+        let button = Button { withAnimation(.easeInOut) { store.hiddenSources.toggle(site, origin: origin) } } label: { Text(L10n.text("Unhide Source")) }
             .controlButton(prominent: true)
             .accessibilityIdentifier("source.unhide." + site.key)
         Group {
@@ -475,7 +475,7 @@ struct SourceOrderCard: View {
     let sites: [Site]
     let arrange: () -> Void
     private var enabled: Binding<Bool> {
-        Binding { store.sourceOrder.enabled } set: { on in withAnimation(.smooth) { store.setCustomSourceOrder(on) } }
+        Binding { store.sourceOrder.enabled } set: { on in withAnimation(.easeInOut) { store.setCustomSourceOrder(on) } }
     }
     private var detail: String {
         L10n.text(store.sourceOrder.enabled ? "Sources at the top are searched first, and their results are listed first."
@@ -649,7 +649,7 @@ struct SourceOrderEditor: View {
                             .accessibilityIdentifier("sources.order.row." + site.key)
                     }
                     TVSettingsAction(title: L10n.text("Reset"), destructive: true) {
-                        withAnimation(.smooth) { sites = automatic }
+                        withAnimation(.easeInOut) { sites = automatic }
                         save()
                     }
                     .disabled(isAutomatic)
@@ -708,11 +708,11 @@ struct SourceOrderEditor: View {
                 }
                 #if os(iOS)
                 ToolbarItem(placement: .bottomBar) {
-                    Button(L10n.text("Reset")) { withAnimation(.smooth) { sites = automatic } }.disabled(isAutomatic)
+                    Button(L10n.text("Reset")) { withAnimation(.easeInOut) { sites = automatic } }.disabled(isAutomatic)
                 }
                 #else
                 ToolbarItem(placement: .destructiveAction) {
-                    Button(L10n.text("Reset")) { withAnimation(.smooth) { sites = automatic } }.disabled(isAutomatic)
+                    Button(L10n.text("Reset")) { withAnimation(.easeInOut) { sites = automatic } }.disabled(isAutomatic)
                 }
                 #endif
             }
@@ -726,7 +726,7 @@ struct SourceOrderEditor: View {
     #if os(tvOS)
     private func move(_ site: Site, to offset: Int) {
         guard let index = sites.firstIndex(where: { $0.id == site.id }) else { return }
-        withAnimation(.smooth) { sites.move(fromOffsets: [index], toOffset: offset) }
+        withAnimation(.easeInOut) { sites.move(fromOffsets: [index], toOffset: offset) }
         save()
     }
     #endif
@@ -847,7 +847,7 @@ struct HiddenSourcesEditor: View {
                         .listRowBackground(Surface())
                         #endif
                     if !failing.isEmpty {
-                        Button { withAnimation(.smooth) { setHidden(failing, true) } } label: {
+                        Button { withAnimation(.easeInOut) { setHidden(failing, true) } } label: {
                             Label(L10n.text("Hide Sources That Aren't Working (%lld)", failing.count), systemImage: "eye.slash")
                         }
                         .accessibilityIdentifier("sources.hidden.failing")
@@ -1062,7 +1062,7 @@ struct SiteView: View {
                                 }
                             }
                         }
-                        .opacity(browser.busy && !browser.videos.isEmpty ? 0.55 : 1).animation(.smooth, value: browser.busy)
+                        .opacity(browser.busy && !browser.videos.isEmpty ? 0.55 : 1).animation(.easeInOut, value: browser.busy)
                         if !browser.videos.isEmpty && (browser.hasMore || browser.loadingMore || browser.moreError != nil) {
                             // A focus section, so moving down from a cover in any column reaches Load More or Try Again.
                             loadMoreFooter.tvFocusSection()
@@ -2026,8 +2026,8 @@ struct VideoDetailView: View {
             DownloadPicker(video: video, site: client.site, flag: activeFlag,
                            episodes: activeEpisodes) { count in
                 guard count > 0 else { return }
-                withAnimation(.smooth(duration: 0.2)) { queuedNotice = count }
-                Task { try? await Task.sleep(for: .seconds(6)); withAnimation(.smooth(duration: 0.2)) { queuedNotice = nil } }
+                withAnimation(.easeInOut(duration: 0.2)) { queuedNotice = count }
+                Task { try? await Task.sleep(for: .seconds(6)); withAnimation(.easeInOut(duration: 0.2)) { queuedNotice = nil } }
             }
         }
         .confirmationDialog(L10n.text("Choose quality"), isPresented: $choosingQuality, titleVisibility: .visible) {
@@ -2143,7 +2143,7 @@ struct VideoDetailView: View {
         .ignoresSafeArea()
         .foregroundStyle(.white).preferredColorScheme(.dark)
         .transition(.opacity)
-        .animation(.smooth(duration: 0.3), value: error)
+        .animation(.easeInOut(duration: 0.3), value: error)
     }
     #endif
 
@@ -2210,13 +2210,13 @@ struct VideoDetailView: View {
                             .settingsButton(prominent: issue.signIn == nil)
                         #if os(tvOS)
                         // A focusable action instead of the small corner close button.
-                        Button(L10n.text("Dismiss")) { withAnimation(.smooth(duration: 0.2)) { playbackIssue = nil } }.settingsButton()
+                        Button(L10n.text("Dismiss")) { withAnimation(.easeInOut(duration: 0.2)) { playbackIssue = nil } }.settingsButton()
                         #endif
                     }
                 }
                 Spacer(minLength: 0)
                 #if !os(tvOS)
-                Button { withAnimation(.smooth(duration: 0.2)) { playbackIssue = nil } } label: {
+                Button { withAnimation(.easeInOut(duration: 0.2)) { playbackIssue = nil } } label: {
                     Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
                         .frame(width: 22, height: 22)
                         .background(Color.primary.opacity(0.07), in: Circle())
@@ -2594,9 +2594,9 @@ struct VideoDetailView: View {
                 if let detail { synopsis(detail) }
             }
         }
-        .animation(.smooth(duration: 0.45), value: tmdb.details)
-        .animation(.smooth(duration: 0.45), value: loadedBackdrop)
-        .animation(.smooth(duration: 0.3), value: tmdb.phase)
+        .animation(.easeInOut(duration: 0.45), value: tmdb.details)
+        .animation(.easeInOut(duration: 0.45), value: loadedBackdrop)
+        .animation(.easeInOut(duration: 0.3), value: tmdb.phase)
         .task(id: tmdb.details?.backdrop) {
             // Into TMDBArtwork's cache, so the banner shows it at once.
             guard let backdrop = tmdb.details?.backdrop,
@@ -2759,7 +2759,7 @@ struct VideoDetailView: View {
         .padding(.trailing, 16).padding(.vertical, 6)
         #endif
         .tvFocusSection()
-        .animation(.smooth(duration: 0.4), value: showsStills)
+        .animation(.easeInOut(duration: 0.4), value: showsStills)
     }
     /// Mac and iPad, under the banner: TMDB hasn't answered yet. Short-drama-length lists stay chips (see episodeList).
     private var tmdbPending: Bool {
@@ -2792,7 +2792,7 @@ struct VideoDetailView: View {
         // A drive line goes to the plugin even without an app sign-in: the plugin asks for its account itself, with
         // its own code, which the app shows (PluginSignIn, or the bundle's sign-in below).
         busy = true; loadingEpisode = episode.id
-        withAnimation(.smooth(duration: 0.2)) { playbackIssue = nil }
+        withAnimation(.easeInOut(duration: 0.2)) { playbackIssue = nil }
         defer { busy = false; if !choosingQuality { loadingEpisode = nil } }
         do {
             let plan = try await client.preparePlayback(episode)
@@ -2830,7 +2830,7 @@ struct VideoDetailView: View {
         if provider == nil && !(error is CloudDriveLoginRequired) {
             Diagnostics.shared.failure("catalog", "play \(client.reportContext) flag=\(episode.flag)", error)
         }
-        withAnimation(.smooth(duration: 0.25)) {
+        withAnimation(.easeInOut(duration: 0.25)) {
             if let provider {
                 let message = provider == "ucToken"
                     // Signed in, but the bundle wants a token its own code gives; signing in again would change nothing.
@@ -2970,7 +2970,7 @@ struct VideoDetailView: View {
         // A button's Full Screen stays until the viewer leaves it; turning the phone back upright ends only a
         // Full Screen the turning opened.
         if !entering { turnedFullScreen = false }
-        withAnimation(.smooth(duration: 0.3)) { fullScreen = entering }
+        withAnimation(.easeInOut(duration: 0.3)) { fullScreen = entering }
         // A landscape picture turns the phone; a portrait one fills the screen upright.
         if !entering { PlayerOrientation.set(landscape: false) } else if landscape { PlayerOrientation.set(landscape: true) }
     }
@@ -3078,8 +3078,8 @@ struct VideoDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         // Its buttons are Liquid Glass, like the player's above them (#293).
         .environment(\.glassControls, true)
-        .animation(.smooth(duration: 0.45), value: tmdb.details)
-        .animation(.smooth(duration: 0.3), value: tmdb.phase)
+        .animation(.easeInOut(duration: 0.45), value: tmdb.details)
+        .animation(.easeInOut(duration: 0.3), value: tmdb.phase)
     }
 
     #if DEBUG
@@ -3104,7 +3104,7 @@ struct VideoDetailView: View {
     @ViewBuilder private func watchSynopsis(_ detail: Video) -> some View {
         let text = synopsisText(detail)
         if !text.isEmpty {
-            Button { withAnimation(.smooth(duration: 0.3)) { synopsisExpanded.toggle() } } label: {
+            Button { withAnimation(.easeInOut(duration: 0.3)) { synopsisExpanded.toggle() } } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(text).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                         .lineLimit(synopsisExpanded ? nil : 3).fixedSize(horizontal: false, vertical: true)
@@ -3531,7 +3531,7 @@ struct EpisodeRow: View {
         #else
         button.buttonStyle(.plain)
             .onHover { hovering = $0 }
-            .animation(.smooth(duration: 0.15), value: hovering)
+            .animation(.easeInOut(duration: 0.15), value: hovering)
         #endif
     }
 }
@@ -3619,8 +3619,8 @@ extension VideoDetailView {
             }
             .ignoresSafeArea()
             .foregroundStyle(.white).preferredColorScheme(.dark)
-            .animation(.smooth(duration: 0.45), value: tmdb.details)
-            .animation(.smooth(duration: 0.3), value: tmdb.phase)
+            .animation(.easeInOut(duration: 0.45), value: tmdb.details)
+            .animation(.easeInOut(duration: 0.3), value: tmdb.phase)
             // Coming back up from the rows, the hero comes back whole, not just as far as the focused button.
             .onChange(of: playFocused || tvHeroFocus != nil) { inHero in
                 if inHero { withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo("hero", anchor: .top) } }
@@ -3808,7 +3808,7 @@ extension SiteView {
                     }
             }
         }
-        .opacity(browser.busy && !browser.videos.isEmpty ? 0.55 : 1).animation(.smooth, value: browser.busy)
+        .opacity(browser.busy && !browser.videos.isEmpty ? 0.55 : 1).animation(.easeInOut, value: browser.busy)
         if !browser.videos.isEmpty && (browser.hasMore || browser.loadingMore || browser.moreError != nil) {
             loadMoreFooter.tvFocusSection()
         }
@@ -3964,8 +3964,8 @@ extension VideoDetailView {
             .ignoresSafeArea(edges: .top)
             .macHeroScroll(heroHeight: height, past: $macPastHero)
         }
-        .animation(.smooth(duration: 0.45), value: tmdb.details)
-        .animation(.smooth(duration: 0.3), value: tmdb.phase)
+        .animation(.easeInOut(duration: 0.45), value: tmdb.details)
+        .animation(.easeInOut(duration: 0.3), value: tmdb.phase)
     }
 
     private func macHero(height: CGFloat, width: CGFloat) -> some View {

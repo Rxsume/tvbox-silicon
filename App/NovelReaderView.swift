@@ -32,33 +32,33 @@ struct NovelPageKey: Equatable {
 }
 
 /// The reader's state: the chapters fetched, where reading is, and the neighbours fetched ahead.
-@MainActor @Observable final class NovelReaderModel {
+@MainActor final class NovelReaderModel: ObservableObject {
     let book: NovelBook
     let chapters: [NovelChapter]
     /// Chapter texts fetched so far, the ones near the reader kept.
-    private(set) var contents: [Int: NovelContent] = [:]
-    private(set) var failure: String?
-    private(set) var nextFailure: String?
+    @Published private(set) var contents: [Int: NovelContent] = [:]
+    @Published private(set) var failure: String?
+    @Published private(set) var nextFailure: String?
     /// A neighbouring chapter being fetched for a page turn.
-    private(set) var fetching: Int?
+    @Published private(set) var fetching: Int?
     /// Why a chapter the reader stands on couldn't be fetched again.
-    private(set) var missing: [Int: String] = [:]
+    @Published private(set) var missing: [Int: String] = [:]
 
     // Page layout.
-    private(set) var place: NovelPlace?
-    @ObservationIgnored private var paged: [Int: NovelPages] = [:]
-    @ObservationIgnored private var pagedKey: NovelPageKey?
+    @Published private(set) var place: NovelPlace?
+    private var paged: [Int: NovelPages] = [:]
+    private var pagedKey: NovelPageKey?
 
     // Scroll layout: the chapters shown one after another; reading on appends the next one.
-    private(set) var lines: [NovelLine] = []
-    private(set) var loaded: [Int] = []
+    @Published private(set) var lines: [NovelLine] = []
+    @Published private(set) var loaded: [Int] = []
     private var counts: [Int: Int] = [:]
-    private(set) var loadingNext = false
+    @Published private(set) var loadingNext = false
     /// The line at the top of the screen.
-    var anchor: String?
+    @Published var anchor: String?
     /// Heights measured as lines draw, for turning a screen at a time; not observed.
-    @ObservationIgnored var heights: [String: CGFloat] = [:]
-    @ObservationIgnored private var saved = Date.distantPast
+    var heights: [String: CGFloat] = [:]
+    private var saved = Date.distantPast
 
     init(_ reading: NovelReading) {
         book = reading.book
@@ -330,9 +330,9 @@ private struct NovelPageFrame {
 /// The reader. In the page layout a swipe, or a tap at either side, turns the page; the middle shows the controls.
 /// The scroll layout is one column of chapters read on downwards.
 struct NovelReaderView: View {
-    @State private var model: NovelReaderModel
-    @State private var store = NovelStore.shared
-    @State private var fonts = NovelFonts.shared
+    @StateObject private var model: NovelReaderModel
+    @ObservedObject private var store = NovelStore.shared
+    @ObservedObject private var fonts = NovelFonts.shared
     @State private var chrome = true
     @State private var panel: Panel?
     @State private var showContents = false
@@ -347,7 +347,7 @@ struct NovelReaderView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
     #if os(macOS)
-    @Environment(Store.self) private var appStore
+    @EnvironmentObject private var appStore: Store
     #endif
     #if os(tvOS)
     @FocusState private var textFocused: Bool
@@ -361,7 +361,7 @@ struct NovelReaderView: View {
 
     init(reading: NovelReading) {
         start = reading
-        _model = State(initialValue: NovelReaderModel(reading))
+        _model = StateObject(wrappedValue: NovelReaderModel(reading))
     }
 
     private var dark: Bool { store.appearance.isDark(scheme == .dark) }
@@ -411,9 +411,9 @@ struct NovelReaderView: View {
         #endif
         #if os(tvOS)
         .onExitCommand {
-            if panel != nil { withAnimation(.smooth) { panel = nil } } else if chrome { close() } else { withAnimation(.smooth) { chrome = true } }
+            if panel != nil { withAnimation(.easeInOut) { panel = nil } } else if chrome { close() } else { withAnimation(.easeInOut) { chrome = true } }
         }
-        .onChange(of: chrome, initial: true) { _, shown in
+        .ios16OnChange(of: chrome, initial: true) { _, shown in
             guard shown else { return }
             Task { try? await Task.sleep(for: .milliseconds(80)); controlFocus = "contents" }
         }
@@ -424,8 +424,8 @@ struct NovelReaderView: View {
                 Task { await model.open(index) }
             }
         }
-        .onChange(of: store.pageTurn) { _, turn in model.switchLayout(to: turn) }
-        .onChange(of: store.font) { _, font in fonts.prepare(font) }
+        .ios16OnChange(of: store.pageTurn) { _, turn in model.switchLayout(to: turn) }
+        .ios16OnChange(of: store.font) { _, font in fonts.prepare(font) }
         .task {
             fonts.prepare(store.font)
             await model.open(start.chapter, position: start.position)
@@ -446,7 +446,7 @@ struct NovelReaderView: View {
                 try? await Task.sleep(for: .seconds(0.8))
             }
             for jump in (UserDefaults.standard.string(forKey: "qaNovelJumps") ?? "").split(separator: ",").compactMap({ Double($0) }) {
-                withAnimation(.smooth) { chrome = true }
+                withAnimation(.easeInOut) { chrome = true }
                 scrub = jump
                 await scrubbed(to: jump)
                 try? await Task.sleep(for: .seconds(4))
@@ -459,7 +459,7 @@ struct NovelReaderView: View {
             }
             if UserDefaults.standard.bool(forKey: "qaNovelChrome") || panel != nil { return }
             #endif
-            withAnimation(.smooth) { chrome = false }
+            withAnimation(.easeInOut) { chrome = false }
         }
         .onDisappear { model.save(force: true) }
     }
@@ -499,8 +499,8 @@ struct NovelReaderView: View {
             #if !os(tvOS)
             .onTapGesture { location in tap(location, size: geometry.size) }
             #endif
-            .onChange(of: key, initial: true) { _, key in pageKey = key }
-            .onChange(of: geometry.size.width, initial: true) { _, width in pageWidth = width }
+            .ios16OnChange(of: key, initial: true) { _, key in pageKey = key }
+            .ios16OnChange(of: geometry.size.width, initial: true) { _, width in pageWidth = width }
         }
         .ignoresSafeArea()
         #if os(tvOS)
@@ -514,9 +514,9 @@ struct NovelReaderView: View {
             default: break
             }
         }
-        .onPlayPauseCommand { withAnimation(.smooth) { chrome.toggle() } }
-        .onTapGesture { withAnimation(.smooth) { chrome.toggle() } }
-        .onChange(of: chrome) { _, shown in if !shown { textFocused = true } }
+        .onPlayPauseCommand { withAnimation(.easeInOut) { chrome.toggle() } }
+        .onTapGesture { withAnimation(.easeInOut) { chrome.toggle() } }
+        .ios16OnChange(of: chrome) { _, shown in if !shown { textFocused = true } }
         #endif
     }
 
@@ -622,7 +622,7 @@ struct NovelReaderView: View {
                 let travel = value.predictedEndTranslation.width
                 if travel < -width * 0.3 { turn(forward: true) }
                 else if travel > width * 0.3 { turn(forward: false) }
-                else { withAnimation(.smooth(duration: 0.25)) { drag = 0 } }
+                else { withAnimation(.easeInOut(duration: 0.25)) { drag = 0 } }
             }
     }
     #endif
@@ -630,16 +630,16 @@ struct NovelReaderView: View {
     // MARK: Turning
 
     private func tap(_ location: CGPoint, size: CGSize) {
-        if panel != nil { withAnimation(.smooth) { panel = nil }; return }
-        if chrome { withAnimation(.smooth) { chrome = false }; return }
+        if panel != nil { withAnimation(.easeInOut) { panel = nil }; return }
+        if chrome { withAnimation(.easeInOut) { chrome = false }; return }
         if store.pageTurn == .pages {
             if location.x < size.width * 0.3 { turn(forward: false) }
             else if location.x > size.width * 0.7 { turn(forward: true) }
-            else { withAnimation(.smooth(duration: 0.2)) { chrome = true } }
+            else { withAnimation(.easeInOut(duration: 0.2)) { chrome = true } }
         } else {
             if location.y < size.height * 0.3 { turn(forward: false) }
             else if location.y > size.height * 0.7 { turn(forward: true) }
-            else { withAnimation(.smooth(duration: 0.2)) { chrome = true } }
+            else { withAnimation(.easeInOut(duration: 0.2)) { chrome = true } }
         }
     }
 
@@ -651,14 +651,16 @@ struct NovelReaderView: View {
         }
         guard !turning, let place = model.place, let key = pageKey else { return }
         guard let target = model.step(from: place, forward: forward, key: key) else {
-            withAnimation(.smooth(duration: 0.25)) { drag = 0 }
+            withAnimation(.easeInOut(duration: 0.25)) { drag = 0 }
             Task { if await model.fetchNeighbour(of: place, forward: forward), model.place == place { turn(forward: forward) } }
             return
         }
         turning = true
-        withAnimation(.smooth(duration: 0.3)) {
+        withAnimation(.easeInOut(duration: 0.3)) {
             drag = forward ? -pageWidth : pageWidth
-        } completion: {
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
             var transaction = Transaction()
             transaction.disablesAnimations = true
             withTransaction(transaction) {
@@ -703,7 +705,7 @@ struct NovelReaderView: View {
                     }
                     footer
                 }
-                .scrollTargetLayout()
+                .ios16ScrollLayout()
                 .frame(maxWidth: maxColumn)
                 .padding(.horizontal, store.margin)
                 .frame(maxWidth: .infinity)
@@ -711,10 +713,10 @@ struct NovelReaderView: View {
                 .padding(.bottom, 40)
             }
             .scrollIndicators(.hidden)
-            .scrollPosition(id: $model.anchor, anchor: .top)
-            .onChange(of: model.anchor) { _, _ in model.moved() }
+            .ios16ScrollPosition(id: $model.anchor)
+            .ios16OnChange(of: model.anchor) { _, _ in model.moved() }
             .onAppear { viewport = geometry.size.height }
-            .onChange(of: geometry.size.height) { _, height in viewport = height }
+            .ios16OnChange(of: geometry.size.height) { _, height in viewport = height }
             #if os(iOS) || os(macOS)
             .simultaneousGesture(SpatialTapGesture().onEnded { tap($0.location, size: geometry.size) })
             #endif
@@ -729,9 +731,9 @@ struct NovelReaderView: View {
                 default: break
                 }
             }
-            .onPlayPauseCommand { withAnimation(.smooth) { chrome.toggle() } }
-            .onTapGesture { withAnimation(.smooth) { chrome.toggle() } }
-            .onChange(of: chrome) { _, shown in if !shown { textFocused = true } }
+            .onPlayPauseCommand { withAnimation(.easeInOut) { chrome.toggle() } }
+            .onTapGesture { withAnimation(.easeInOut) { chrome.toggle() } }
+            .ios16OnChange(of: chrome) { _, shown in if !shown { textFocused = true } }
             #endif
         }
     }
@@ -848,7 +850,7 @@ struct NovelReaderView: View {
         .frame(maxWidth: panelWidth)
         .glassSurface(.regular, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
         .padding(.horizontal, 12).padding(.bottom, 6)
-        .animation(.smooth(duration: 0.25), value: panel)
+        .animation(.easeInOut(duration: 0.25), value: panel)
     }
 
     #if os(tvOS)
@@ -859,7 +861,7 @@ struct NovelReaderView: View {
     private let tabSpacing: CGFloat = 6
     #endif
 
-    private func toggle(_ next: Panel) { withAnimation(.smooth(duration: 0.25)) { panel = panel == next ? nil : next } }
+    private func toggle(_ next: Panel) { withAnimation(.easeInOut(duration: 0.25)) { panel = panel == next ? nil : next } }
 
     /// The chapter buttons with the slider between them on one centre line, and where reading is beneath.
     private var chapterRow: some View {

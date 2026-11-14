@@ -106,7 +106,7 @@ struct StateMessage<Actions: View, Footer: View>: View {
 
     private func disclosure(_ details: String) -> some View {
         VStack(spacing: 12) {
-            Button { withAnimation(.smooth(duration: 0.25)) { showsDetails.toggle() } } label: {
+            Button { withAnimation(.easeInOut(duration: 0.25)) { showsDetails.toggle() } } label: {
                 HStack(spacing: 6) {
                     Text(L10n.text(showsDetails ? "Hide details" : "Show details"))
                     Image(systemName: "chevron.down").font(.caption2.weight(.bold)).rotationEffect(.degrees(showsDetails ? 180 : 0))

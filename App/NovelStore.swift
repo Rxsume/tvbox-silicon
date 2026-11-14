@@ -2,35 +2,35 @@ import SwiftUI
 import TVCore
 
 /// The Novels section's state: subscribed Legado book source lists, the bookshelf and the reader's settings.
-@MainActor @Observable final class NovelStore {
+@MainActor final class NovelStore: ObservableObject {
     static let shared = NovelStore()
 
-    private(set) var lists: [NovelSourceList] = NovelSources.shared.lists
+    @Published private(set) var lists: [NovelSourceList] = NovelSources.shared.lists
     /// Lists a page of lists offered, to add one by one in Book Sources.
-    private(set) var offers: [NovelSourceOffer] = NovelSources.shared.offers
-    private(set) var sources: [NovelSource] = NovelSources.shared.all
-    private(set) var enabledKeys: Set<String> = Set(NovelSources.shared.enabled.map(\.key))
-    private(set) var shelf: [NovelLibrary.ShelfBook] = NovelLibrary.load("shelf.json", as: [NovelLibrary.ShelfBook].self) ?? []
+    @Published private(set) var offers: [NovelSourceOffer] = NovelSources.shared.offers
+    @Published private(set) var sources: [NovelSource] = NovelSources.shared.all
+    @Published private(set) var enabledKeys: Set<String> = Set(NovelSources.shared.enabled.map(\.key))
+    @Published private(set) var shelf: [NovelLibrary.ShelfBook] = NovelLibrary.load("shelf.json", as: [NovelLibrary.ShelfBook].self) ?? []
     /// What the last search found, kept while the app runs so Back to the search shows it again.
-    var lastSearch: (keyword: String, hits: [NovelSearchHit]) = ("", [])
+    @Published var lastSearch: (keyword: String, hits: [NovelSearchHit]) = ("", [])
     /// The group search is limited to (nil: every source that is on). Big lists hold thousands of sources.
-    var searchGroup: String? {
+    @Published var searchGroup: String? {
         didSet { UserDefaults.standard.set(searchGroup, forKey: "novel.searchGroup"); recomputeScope() }
     }
     /// The source whose explore page the section shows.
-    var exploreSource: String? {
+    @Published var exploreSource: String? {
         didSet { UserDefaults.standard.set(exploreSource, forKey: "novel.exploreSource"); recomputeExplore() }
     }
 
     // Reader settings.
-    var fontSize: Double { didSet { UserDefaults.standard.set(fontSize, forKey: "novel.fontSize") } }
+    @Published var fontSize: Double { didSet { UserDefaults.standard.set(fontSize, forKey: "novel.fontSize") } }
     /// Line pitch as a multiple of the font size.
-    var lineHeight: Double { didSet { UserDefaults.standard.set(lineHeight, forKey: "novel.lineHeight") } }
+    @Published var lineHeight: Double { didSet { UserDefaults.standard.set(lineHeight, forKey: "novel.lineHeight") } }
     /// Space at the sides of the page, in points.
-    var margin: Double { didSet { UserDefaults.standard.set(margin, forKey: "novel.margin") } }
-    var font: NovelFontChoice { didSet { UserDefaults.standard.set(font.rawValue, forKey: "novel.font") } }
-    var theme: NovelTheme { didSet { UserDefaults.standard.set(theme.rawValue, forKey: "novel.theme") } }
-    var appearance: NovelAppearance { didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "novel.appearance") } }
+    @Published var margin: Double { didSet { UserDefaults.standard.set(margin, forKey: "novel.margin") } }
+    @Published var font: NovelFontChoice { didSet { UserDefaults.standard.set(font.rawValue, forKey: "novel.font") } }
+    @Published var theme: NovelTheme { didSet { UserDefaults.standard.set(theme.rawValue, forKey: "novel.theme") } }
+    @Published var appearance: NovelAppearance { didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "novel.appearance") } }
     var pageTurn: NovelPageTurn { didSet { UserDefaults.standard.set(pageTurn.rawValue, forKey: "novel.pageTurn") } }
 
     static let lineHeightRange: ClosedRange<Double> = 1.3...2.4
@@ -101,15 +101,15 @@ import TVCore
         currentExplore = explorable.first { $0.key == exploreSource } ?? explorable.first
     }
 
-    private(set) var enabledSources: [NovelSource] = []
-    private(set) var searchable: [NovelSource] = []
-    private(set) var explorable: [NovelSource] = []
+    @Published private(set) var enabledSources: [NovelSource] = []
+    @Published private(set) var searchable: [NovelSource] = []
+    @Published private(set) var explorable: [NovelSource] = []
     /// The sources a search asks: the switched-on ones, in the chosen group.
-    private(set) var searchScope: [NovelSource] = []
+    @Published private(set) var searchScope: [NovelSource] = []
     /// The groups of the searchable sources, biggest first.
-    private(set) var searchGroups: [(name: String, count: Int)] = []
-    private(set) var currentExplore: NovelSource?
-    @ObservationIgnored private var names: [String: String] = [:]
+    @Published private(set) var searchGroups: [(name: String, count: Int)] = []
+    @Published private(set) var currentExplore: NovelSource?
+    private var names: [String: String] = [:]
     func name(of key: String) -> String { names[key] ?? URL(string: key)?.host() ?? key }
 
     // MARK: Lists and sources

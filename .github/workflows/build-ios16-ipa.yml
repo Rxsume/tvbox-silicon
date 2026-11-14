@@ -37,7 +37,7 @@ jobs:
           java-version: "19"
 
       - name: Install XcodeGen and uv
-        run: brew install xcodegen uv
+        run: brew install xcodegen uv autoconf automake libtool cmake ninja pkg-config
 
       # Build every host and cross-compiled Apple runtime the iOS target embeds.
       # The JVM/FFmpeg/libass/Python/Node pieces download and compile a lot on the

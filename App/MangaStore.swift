@@ -385,7 +385,7 @@ struct MangaNoticeBanner: ViewModifier {
                     }
             }
         }
-        .animation(.smooth, value: store.notice)
+        .animation(.easeInOut, value: store.notice)
     }
 }
 

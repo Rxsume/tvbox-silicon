@@ -83,7 +83,7 @@ struct ArtworkBadgeButton: View {
         #if !os(tvOS)
         .onHover { hovering = $0 }
         #endif
-        .animation(.smooth(duration: 0.12), value: hovering)
+        .animation(.easeInOut(duration: 0.12), value: hovering)
         .accessibilityLabel(label).help(label)
     }
 }

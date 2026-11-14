@@ -148,11 +148,11 @@ private protocol EnhancementEngine: AnyObject, Sendable {
         var next = VideoEnhancementOptions(upscale: VideoEnhancement.canUpscale && defaults.bool(forKey: VideoEnhancement.upscaleKey),
                                            smooth: VideoEnhancement.canSmooth && defaults.bool(forKey: VideoEnhancement.smoothKey),
                                            target: displaySize)
-        if !allowed(player) { next.upscale = false; next.smooth = false }
+        if !allowed(player) { next.upscale = false; next.easeInOut = false }
         #if DEBUG
         next.mark = defaults.bool(forKey: "qaEnhanceHUD")
         #endif
-        let current = (next.upscale || next.smooth) ? player.currentItem : nil
+        let current = (next.upscale || next.easeInOut) ? player.currentItem : nil
         if current !== item || (current != nil && output == nil) {
             if let item, let output { item.remove(output) }
             if let jumpObserver { NotificationCenter.default.removeObserver(jumpObserver) }
@@ -554,7 +554,7 @@ private final class EnhancementPipeline: EnhancementEngine, @unchecked Sendable 
     }
 
     private func handle(_ frame: Frame, output: AVPlayerItemVideoOutput) {
-        guard options.upscale || options.smooth else { return update(VideoEnhancementStatus()) }
+        guard options.upscale || options.easeInOut else { return update(VideoEnhancementStatus()) }
         if Self.isHDR(frame.buffer) {
             // Processing is 8-bit SDR; HDR keeps AVKit's own picture and the TV's HDR mode.
             if !hdr { hdr = true; update(VideoEnhancementStatus(), note: "hdr source, left to AVKit") }
@@ -580,7 +580,7 @@ private final class EnhancementPipeline: EnhancementEngine, @unchecked Sendable 
             let known = Self.limits.withLock { $0.budget(pixels: width * height, now: CACurrentMediaTime()) }
             smoothingRuledOut = known == nil
             if let known { workBudget = min(workBudget, known) }
-            else if options.smooth { note("smooth \(width)x\(height) skipped: too slow on this device earlier") }
+            else if options.easeInOut { note("smooth \(width)x\(height) skipped: too slow on this device earlier") }
         }
         let work = workSize(width: width, height: height)
         prepare(width: width, height: height, work: work, format: CVPixelBufferGetPixelFormatType(frame.buffer))
@@ -878,7 +878,7 @@ private final class EnhancementPipeline: EnhancementEngine, @unchecked Sendable 
         let factor = options.upscale ? Self.scaleFactor(width: width, height: height, target: options.target) : nil
         let scaleKey = factor.map { "scale \(width)x\(height) x\($0)" }
         let tooFast = shownInterval.map { $0 <= 1 / 47.0 } ?? false
-        let smoothKey = options.smooth && !tooFast && !smoothingRuledOut && Self.interpolationFits(width: work.width, height: work.height)
+        let smoothKey = options.easeInOut && !tooFast && !smoothingRuledOut && Self.interpolationFits(width: work.width, height: work.height)
             ? "smooth \(work.width)x\(work.height)\(work != (width, height) ? " from \(width)x\(height)" : "")" : nil
         wanted = (scaleKey, smoothKey)
         if scaler?.key != scaleKey { scaler = nil }
@@ -916,7 +916,7 @@ private final class EnhancementPipeline: EnhancementEngine, @unchecked Sendable 
                 switch result {
                 case .success(let stage):
                     if wanted.scale == key { scaler = stage }
-                    else if wanted.smooth == key { interpolator = stage }
+                    else if wanted.easeInOut == key { interpolator = stage }
                     else { return }
                     note("\(key) started in \(took) ms")
                 case .failure(let error):

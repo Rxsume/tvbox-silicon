@@ -541,7 +541,7 @@ struct DanmakuListView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .animation(.smooth(duration: 0.3), value: following)
+            .animation(.easeInOut(duration: 0.3), value: following)
             .onAppear { follow(proxy, animated: false) }
             .onChange(of: now) { _ in if following { follow(proxy, animated: true) } }
             .onChange(of: query) { text in if text.isEmpty { follow(proxy, animated: false) } }
@@ -579,7 +579,7 @@ struct DanmakuListView: View {
         let target = min(comments.count - 1, nowIndex)
         guard target != anchor || !animated else { return }
         anchor = target
-        if animated { withAnimation(.smooth(duration: 0.4)) { proxy.scrollTo(target, anchor: UnitPoint(x: 0.5, y: 0.4)) } }
+        if animated { withAnimation(.easeInOut(duration: 0.4)) { proxy.scrollTo(target, anchor: UnitPoint(x: 0.5, y: 0.4)) } }
         else { proxy.scrollTo(target, anchor: UnitPoint(x: 0.5, y: 0.4)) }
     }
 

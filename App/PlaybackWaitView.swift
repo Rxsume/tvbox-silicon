@@ -222,7 +222,7 @@ struct PlaybackWaitView: View {
                     }
                 }
             }
-            .animation(.smooth(duration: 0.45), value: wait)
+            .animation(.easeInOut(duration: 0.45), value: wait)
             .padding(.horizontal, 24)
             .accessibilityElement(children: .combine)
             VStack(spacing: 0) {

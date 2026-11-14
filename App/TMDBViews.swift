@@ -32,7 +32,7 @@ import TVCore
         let (id, type) = (details.id, details.mediaType)
         Task {
             let score = await DoubanRating.score(tmdbID: id, mediaType: type)
-            if doubanFor == tag { withAnimation(.smooth(duration: 0.3)) { douban = score } }
+            if doubanFor == tag { withAnimation(.easeInOut(duration: 0.3)) { douban = score } }
         }
     }
 
@@ -75,7 +75,7 @@ import TVCore
             guard let fresh = try? await TMDBMatch.details(match.mediaType, id: match.id, season: match.season),
                   self.key == key, !chosen, fresh != details else { return }
             let answer = await TMDBMatchStore.shared.update(fresh, for: key)
-            withAnimation(.smooth(duration: 0.35)) {
+            withAnimation(.easeInOut(duration: 0.35)) {
                 details = fresh
                 if let answer { self.answer = answer }
             }
@@ -92,11 +92,11 @@ import TVCore
             let answer = try await TMDBMatch.lookup(request) { step in
                 Task { @MainActor [weak self] in
                     guard let self, step != .thinking || self.step == .starting else { return }
-                    withAnimation(.smooth(duration: 0.25)) { self.step = step }
+                    withAnimation(.easeInOut(duration: 0.25)) { self.step = step }
                 }
             }
             await TMDBMatchStore.shared.save(answer, for: key)
-            withAnimation(.smooth(duration: 0.35)) { show(answer) }
+            withAnimation(.easeInOut(duration: 0.35)) { show(answer) }
         } catch {
             guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { phase = .idle; return }
             // Not a failure of the page: it just shows the source's own details.
@@ -122,14 +122,14 @@ import TVCore
         guard let key else { return }
         chosen = true
         await TMDBMatchStore.shared.choose(.none, for: key)
-        withAnimation(.smooth(duration: 0.3)) { details = nil; phase = .notFound }
+        withAnimation(.easeInOut(duration: 0.3)) { details = nil; phase = .notFound }
     }
 
     private func load(_ type: TMDBMatch.MediaType, id: Int, season: Int?) async {
         phase = .looking; step = .loading
         do {
             let value = try await TMDBMatch.details(type, id: id, season: season)
-            withAnimation(.smooth(duration: 0.35)) { details = value; phase = .matched }
+            withAnimation(.easeInOut(duration: 0.35)) { details = value; phase = .matched }
         } catch {
             guard !Task.isCancelled else { return }
             Diagnostics.shared.record(.warning, "tmdb", "details failed: \(error.localizedDescription)")

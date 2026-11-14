@@ -368,7 +368,7 @@ struct PlaybackView: View {
         #endif
         hideTask = Task {
             try? await Task.sleep(for: .seconds(delay))
-            if !Task.isCancelled { withAnimation(.smooth(duration: 0.3)) { showsChrome = false } }
+            if !Task.isCancelled { withAnimation(.easeInOut(duration: 0.3)) { showsChrome = false } }
         }
     }
 
@@ -399,7 +399,7 @@ struct PlaybackView: View {
         #endif
         guard showsChrome, !quietStart else { return poke() }
         hideTask?.cancel()
-        withAnimation(.smooth(duration: 0.25)) { showsChrome = false }
+        withAnimation(.easeInOut(duration: 0.25)) { showsChrome = false }
     }
 
     /// The seek bar is held: the controls stay until it is let go, then count down again.
@@ -1334,12 +1334,12 @@ private struct NativePlayerView: UIViewControllerRepresentable {
     }
 
     func poke() {
-        if !visible { withAnimation(.smooth(duration: 0.25)) { visible = true } }
+        if !visible { withAnimation(.easeInOut(duration: 0.25)) { visible = true } }
         task?.cancel()
         task = Task { [weak self] in
             try? await Task.sleep(for: .seconds(2.5))
             guard !Task.isCancelled, let self else { return }
-            withAnimation(.smooth(duration: 0.4)) { self.visible = false }
+            withAnimation(.easeInOut(duration: 0.4)) { self.visible = false }
             NSCursor.setHiddenUntilMouseMoves(true)
         }
     }
@@ -1829,7 +1829,7 @@ struct PlaybackInfoPanel: View {
         .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous))
         .overlay { RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 1) }
         .opacity(rows.isEmpty ? 0 : 1)
-        .animation(.smooth(duration: 0.25), value: rows.map(\.id))
+        .animation(.easeInOut(duration: 0.25), value: rows.map(\.id))
         .environment(\.colorScheme, .dark)
         .allowsHitTesting(false)
         .accessibilityElement(children: .combine)
@@ -1871,7 +1871,7 @@ struct PlaybackBadges: View {
     var body: some View {
         content
             .opacity(badges.isEmpty ? 0 : 1)
-            .animation(.smooth(duration: 0.25), value: badges)
+            .animation(.easeInOut(duration: 0.25), value: badges)
             .task(id: active) {
                 while active && !Task.isCancelled {
                     if let info = await sampler.sample(session), info.badges != badges { badges = info.badges }
@@ -1937,7 +1937,7 @@ struct PlayerTitleLogo: View {
                     .frame(width: size.width, height: size.height, alignment: .bottomLeading)
                     .shadow(color: .black.opacity(0.45), radius: 6)
                     .opacity(aspect == nil ? 0 : 1)
-                    .animation(.smooth(duration: 0.3), value: aspect == nil)
+                    .animation(.easeInOut(duration: 0.3), value: aspect == nil)
                     .accessibilityHidden(true)
             }
         }

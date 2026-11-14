@@ -121,7 +121,7 @@ struct BilibiliCreatorRow: View {
             }
             BilibiliNotice(message: Binding(get: { model.message }, set: { model.message = $0 }))
         }
-        .animation(.smooth(duration: 0.25), value: model.creator)
+        .animation(.easeInOut(duration: 0.25), value: model.creator)
         .task(id: mid) { await model.load(mid) }
     }
 
@@ -196,7 +196,7 @@ struct BilibiliCreatorRow: View {
                 }
             }
         }
-        .animation(.smooth(duration: 0.25), value: model.creator)
+        .animation(.easeInOut(duration: 0.25), value: model.creator)
         .task(id: mid) { await model.load(mid) }
     }
 
@@ -620,7 +620,7 @@ struct BilibiliCommentsView: View {
                 }
                 .padding(3)
                 .glassOrFill(.regular, Color.white.opacity(0.1), in: Capsule())
-                .animation(.smooth(duration: 0.2), value: newest)
+                .animation(.easeInOut(duration: 0.2), value: newest)
                 Button { dismiss() } label: {
                     Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).frame(width: 34, height: 34).contentShape(Circle())
                 }
@@ -1125,7 +1125,7 @@ struct BilibiliPhoneVideoPage<Parts: View, Status: View>: View {
             if let state = actions.state, !hotComments.isEmpty { commentsCard(total: state.replies) }
             BilibiliRelatedRow(bvid: bvid, client: client)
         }
-        .animation(.smooth(duration: 0.3), value: actions.state)
+        .animation(.easeInOut(duration: 0.3), value: actions.state)
         .task(id: bvid) {
             await actions.load(bvid)
             if let aid = actions.state?.aid, let page = try? await BilibiliAPI.comments(aid: aid, newest: false, cursor: nil) {
@@ -1236,7 +1236,7 @@ struct BilibiliPhoneVideoPage<Parts: View, Status: View>: View {
     @ViewBuilder private var description: some View {
         let text = summary
         if !text.isEmpty {
-            Button { withAnimation(.smooth(duration: 0.3)) { expanded.toggle() } } label: {
+            Button { withAnimation(.easeInOut(duration: 0.3)) { expanded.toggle() } } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(text).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                         .lineLimit(expanded ? nil : 3).fixedSize(horizontal: false, vertical: true)
@@ -1351,7 +1351,7 @@ struct BilibiliMacVideoPage<Play: View, Parts: View, Status: View>: View {
             .ignoresSafeArea(edges: .top)
             .macHeroScroll(heroHeight: height, past: $pastHero)
         }
-        .animation(.smooth(duration: 0.3), value: actions.state)
+        .animation(.easeInOut(duration: 0.3), value: actions.state)
         .task(id: bvid) {
             await actions.load(bvid)
             if let aid = actions.state?.aid, let page = try? await BilibiliAPI.comments(aid: aid, newest: false, cursor: nil) {
@@ -1638,7 +1638,7 @@ struct BilibiliTVVideoPage<Play: View, Parts: View, Status: View>: View {
         .background { BilibiliTVBackdrop(cover: cover, headers: coverHeaders, frosted: scrolled) }
         .ignoresSafeArea()
         .foregroundStyle(.white).preferredColorScheme(.dark)
-        .animation(.smooth(duration: 0.35), value: actions.state)
+        .animation(.easeInOut(duration: 0.35), value: actions.state)
         .task(id: bvid) {
             async let suggested = BilibiliAPI.related(bvid: bvid)
             await actions.load(bvid)
@@ -1964,7 +1964,7 @@ struct BilibiliTVSpacePage<Grid: View>: View {
             maker.needsSignIn = false; maker.message = nil; showsSignIn = true
         }
         .fullScreenCover(isPresented: $showsSignIn, onDismiss: { Task { await maker.load(mid) } }) { BilibiliAccountView() }
-        .animation(.smooth(duration: 0.3), value: maker.creator)
+        .animation(.easeInOut(duration: 0.3), value: maker.creator)
     }
 
     private var hero: some View {
@@ -2035,12 +2035,12 @@ private struct BilibiliTVToast: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .task(id: message) {
                         try? await Task.sleep(for: .seconds(3.5))
-                        withAnimation(.smooth(duration: 0.35)) { self.message = nil }
+                        withAnimation(.easeInOut(duration: 0.35)) { self.message = nil }
                     }
             }
         }
         .padding(.top, 54)
-        .animation(.smooth(duration: 0.35), value: message)
+        .animation(.easeInOut(duration: 0.35), value: message)
         .allowsHitTesting(false)
     }
 }

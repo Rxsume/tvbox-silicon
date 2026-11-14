@@ -610,7 +610,7 @@ private struct FavoriteFilmCard: View {
         }
         #if os(macOS)
         .onHover { hovering = $0 }
-        .animation(.smooth(duration: 0.15), value: hovering)
+        .animation(.easeInOut(duration: 0.15), value: hovering)
         #endif
     }
 }
@@ -652,7 +652,7 @@ private struct FavoriteEpisodeCard: View {
         .overlay(alignment: .topTrailing) { if hovering { detailsLink.padding(8).transition(.opacity) } }
         #if !os(tvOS)
         .onHover { hovering = $0 }
-        .animation(.smooth(duration: 0.15), value: hovering)
+        .animation(.easeInOut(duration: 0.15), value: hovering)
         #endif
     }
 

@@ -3,7 +3,7 @@ import TVCore
 
 /// Settings › Book Sources: the subscribed Legado lists, and how many of their sources are on.
 struct NovelSourcesView: View {
-    @State private var store = NovelStore.shared
+    @ObservedObject private var store = NovelStore.shared
     @State private var refreshing = false
     @State private var adding: Set<URL> = []
     @State private var offerErrors: [URL: String] = [:]
@@ -137,7 +137,7 @@ struct NovelSourcesView: View {
 /// One list's sources, each switched on or off; search and explore use the ones that are on.
 struct NovelListView: View {
     let url: URL
-    @State private var store = NovelStore.shared
+    @ObservedObject private var store = NovelStore.shared
     @State private var filter = ""
     @State private var working = false
     @State private var message: String?
