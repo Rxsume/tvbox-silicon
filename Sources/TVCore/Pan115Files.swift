@@ -192,7 +192,14 @@ enum M115 {
     }
 
     static func derive(_ seed: [UInt8], _ size: Int) -> [UInt8] {
-        (0..<size).map { (seed[$0] &+ table[size * $0]) ^ table[size * (size - $0 - 1)] }
+        var output: [UInt8] = []
+        output.reserveCapacity(size)
+        for index in 0..<size {
+            let left = seed[index] &+ table[size * index]
+            let right = table[size * (size - index - 1)]
+            output.append(left ^ right)
+        }
+        return output
     }
 
     /// XOR with `key` repeated, restarting it after the first `count % 4` bytes.
