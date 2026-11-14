@@ -19,9 +19,9 @@ struct SubtitleStyleView: View {
 
     var body: some View {
         page
-            .onChange(of: style) { _, new in if !adjusting { new.save() } }
-            .onChange(of: adjusting) { _, now in if !now { style.save() } }
-            .onChange(of: delay) { _, new in SubtitleDelay.save(new) }
+            .onChange(of: style) { new in if !adjusting { new.save() } }
+            .onChange(of: adjusting) { now in if !now { style.save() } }
+            .onChange(of: delay) { new in SubtitleDelay.save(new) }
             // The player's menu steps the delay too (the Mac shows Settings beside the player).
             .onReceive(NotificationCenter.default.publisher(for: SubtitleDelay.changed)) { _ in delay = SubtitleDelay.load() }
     }
@@ -138,7 +138,7 @@ struct SubtitlePreview: View {
         .aspectRatio(16 / 9, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         #if !os(tvOS)
-        .sensoryFeedback(.alignment, trigger: style.x == 0.5) { _, centred in centred && start != nil }
+        
         #endif
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(L10n.text("Subtitle Style"))
@@ -425,7 +425,7 @@ private struct TVSubtitleStylePage: View {
                 .glassRowInsets()
                 .padding(.vertical, 40)
             }
-            .scrollClipDisabled()
+            
             .tvFocusSection()
         }
         .padding(.horizontal, Layout.gutter)

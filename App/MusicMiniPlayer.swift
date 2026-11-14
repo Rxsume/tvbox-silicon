@@ -32,7 +32,7 @@ struct MusicArtwork: View {
 /// It is always the same height; the lyrics and everything else are on the Now Playing screen,
 /// which a tap opens. `inline` is the narrower form beside a minimized tab bar.
 struct MusicMiniPlayer: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     var inline = false
 
     var body: some View {
@@ -55,7 +55,7 @@ struct MusicMiniPlayer: View {
                     ProgressView().frame(width: 36, height: 36)
                 } else {
                     button(music.isPlaying ? "pause.fill" : "play.fill", label: music.isPlaying ? "Pause" : "Play") { music.toggle() }
-                        .contentTransition(.symbolEffect(.replace))
+                        
                 }
                 if !inline {
                     button("forward.fill", label: "Next") { music.next() }.disabled(music.queue?.hasNext != true)

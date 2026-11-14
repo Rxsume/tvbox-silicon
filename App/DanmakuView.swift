@@ -101,7 +101,7 @@ struct DanmakuDisplaySettings: View {
 #if !os(tvOS)
 /// Display controls beside the area in the player's menu, for whatever comments are playing.
 struct DanmakuStylePickers: View {
-    @Bindable var model: CatalogDanmakuModel
+    @ObservedObject var model: CatalogDanmakuModel
 
     var body: some View {
         DanmakuTextStylePickers(fontSize: $model.fontSize, opacity: $model.opacity)
@@ -543,8 +543,8 @@ struct DanmakuListView: View {
             }
             .animation(.smooth(duration: 0.3), value: following)
             .onAppear { follow(proxy, animated: false) }
-            .onChange(of: now) { _, _ in if following { follow(proxy, animated: true) } }
-            .onChange(of: query) { _, text in if text.isEmpty { follow(proxy, animated: false) } }
+            .onChange(of: now) { _ in if following { follow(proxy, animated: true) } }
+            .onChange(of: query) { text in if text.isEmpty { follow(proxy, animated: false) } }
         }
     }
 
@@ -681,7 +681,7 @@ extension View {
         #if os(iOS)
         self.presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
-            .presentationBackground(.ultraThinMaterial)
+            
             .presentationCornerRadius(28)
             .preferredColorScheme(.dark)
         #else

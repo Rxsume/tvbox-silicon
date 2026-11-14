@@ -7,7 +7,7 @@ import TVCore
 /// player. Drawn like the Danmaku tab beside it: white plates on a dark panel, no glass over the moving picture.
 struct TVPlayerEpisodesPanel: View {
     let channel: Channel
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var selectedFlag: String?
     @FocusState private var focus: Focus?
     /// The show's TMDB match, as the details page kept it: the episodes' stills.
@@ -76,7 +76,7 @@ struct TVPlayerEpisodesPanel: View {
                             }
                             .padding(.trailing, 48).padding(.vertical, 8)
                         }
-                        .scrollClipDisabled()
+                        
                         // Up and Down move between the rows from anywhere, not only to a button straight above or below.
                         .focusSection()
                         .onAppear { proxy.scrollTo(flag, anchor: .center) }
@@ -109,10 +109,10 @@ struct TVPlayerEpisodesPanel: View {
                     }
                     .padding(.horizontal, 40).padding(.top, 10).padding(.bottom, 2)
                 }
-                .scrollClipDisabled()
+                
                 .focusSection()
                 .onAppear { if let id = current?.id, items.contains(where: { $0.id == id }) { proxy.scrollTo(id, anchor: .center) } }
-                .onChange(of: flag) { _, _ in
+                .onChange(of: flag) { _ in
                     if let first = items.first(where: { $0.id == current?.id }) ?? items.first { proxy.scrollTo(first.id, anchor: .leading) }
                 }
             }

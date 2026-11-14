@@ -11,7 +11,7 @@ typealias MusicTrack = TVCore.MusicTrack
 /// length. A song no channel can play is skipped, until several in a row fail. Songs that play go
 /// into the history, and where listening is gets saved, to continue later.
 /// A new song, or Stop, cancels everything for the old one, so a late answer never plays.
-@MainActor @Observable final class MusicPlaybackSession {
+@MainActor final class MusicPlaybackSession: ObservableObject {
     enum Phase: Equatable {
         case idle
         /// Finding a channel.
@@ -23,38 +23,38 @@ typealias MusicTrack = TVCore.MusicTrack
         case failed(String)
     }
 
-    private(set) var queue: MusicQueue?
+    @Published private(set) var queue: MusicQueue?
     var track: MusicTrack? { queue?.current }
-    private(set) var selection: MusicPlaybackSelection?
-    private(set) var phase: Phase = .idle
+    @Published private(set) var selection: MusicPlaybackSelection?
+    @Published private(set) var phase: Phase = .idle
     /// Every channel tried for this song, with how it went.
-    private(set) var attempts: [MusicAttempt] = []
+    @Published private(set) var attempts: [MusicAttempt] = []
     /// Diagnostics for the last failure; never holds addresses.
-    private(set) var failureDetail: String?
+    @Published private(set) var failureDetail: String?
     /// A song that was skipped, and why; cleared when the next one plays.
-    private(set) var notice: String?
-    private(set) var position: Double = 0
-    private(set) var duration: Double?
+    @Published private(set) var notice: String?
+    @Published private(set) var position: Double = 0
+    @Published private(set) var duration: Double?
     /// Where a seek in flight is going: until it lands, the clock still reports the old time, and
     /// showing that made the slider jump back and forth.
-    private(set) var seekingTo: Double?
-    private(set) var lyrics: MusicLyrics?
-    private(set) var lyricsLoading = false
+    @Published private(set) var seekingTo: Double?
+    @Published private(set) var lyrics: MusicLyrics?
+    @Published private(set) var lyricsLoading = false
     /// tvOS shows playback full screen, where the remote reaches every control; set when a song
     /// starts, and by Now Playing.
-    var presentsPlayer = false
+    @Published var presentsPlayer = false
     /// What the Mac's Now Playing shows beside the cover.
-    var nowPlayingPanel: MusicNowPlayingPanel = .lyrics
+    @Published var nowPlayingPanel: MusicNowPlayingPanel = .lyrics
     /// Off, the whole queue again, or the one song again; remembered across launches.
-    private(set) var repeatMode = MusicRepeatMode(rawValue: UserDefaults.standard.string(forKey: "musicRepeat") ?? "") ?? .off
+    @Published private(set) var repeatMode = MusicRepeatMode(rawValue: UserDefaults.standard.string(forKey: "musicRepeat") ?? "") ?? .off
     /// The songs after this one play in random order; turning it off puts the queue back as it came.
-    private(set) var shuffled = false
+    @Published private(set) var shuffled = false
     private var unshuffled: [MusicTrack]?
     /// The player's own volume, under the system's; remembered across launches.
-    var volume: Double = UserDefaults.standard.object(forKey: "musicVolume") == nil ? 1 : UserDefaults.standard.double(forKey: "musicVolume") {
+    @Published var volume: Double = UserDefaults.standard.object(forKey: "musicVolume") == nil ? 1 : UserDefaults.standard.double(forKey: "musicVolume") {
         didSet { player.volume = Float(volume); UserDefaults.standard.set(volume, forKey: "musicVolume") }
     }
-    var preferences = MusicPreferences.load() {
+    @Published var preferences = MusicPreferences.load() {
         didSet { if preferences != oldValue { preferences.save() } }
     }
     let library: MusicLibrary
@@ -85,14 +85,14 @@ typealias MusicTrack = TVCore.MusicTrack
     // MARK: TVBox episodes (#289)
 
     /// Turns a TVBox episode into its stream through its source; set by the store, which has the subscriptions.
-    @ObservationIgnored var resolveSource: ((MusicSourceEpisode) async throws -> Channel)?
+    var resolveSource: ((MusicSourceEpisode) async throws -> Channel)?
     /// Opens a TVBox episode in the video player at a second: its stream has a picture (`true`), or this player
     /// can't play it and the video player, with more ways to play, might. The last is whether Now Playing was open.
-    @ObservationIgnored var handOffSource: ((Channel, Double, Bool, Bool) -> Void)?
+    var handOffSource: ((Channel, Double, Bool, Bool) -> Void)?
     /// Saves where a TVBox episode is under its book, as the video player saves a series.
-    @ObservationIgnored var recordSource: ((MusicSourceEpisode, Double, Double) -> Void)?
+    var recordSource: ((MusicSourceEpisode, Double, Double) -> Void)?
     /// The stream of the TVBox episode playing.
-    private(set) var sourceStream: Channel?
+    @Published private(set) var sourceStream: Channel?
     /// The first episode's stream, which the page that started the queue already resolved.
     private var givenStream: (track: String, channel: Channel)?
     private var pictureObservation: NSKeyValueObservation?
@@ -132,7 +132,7 @@ typealias MusicTrack = TVCore.MusicTrack
     var failure: String? { if case .failed(let message) = phase { message } else { nil } }
     /// Seconds the lyrics run ahead of the audio for this song, set by the viewer: positive shows
     /// lines earlier. Covers lyrics timed a little off and slow outputs such as Bluetooth.
-    private(set) var lyricsOffset: Double = 0
+    @Published private(set) var lyricsOffset: Double = 0
     var currentLyric: Int? { lyrics?.index(at: (seekingTo ?? position) + lyricsOffset) }
     private static let offsetsKey = "musicLyricsOffsets"
 

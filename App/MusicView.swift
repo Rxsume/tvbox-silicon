@@ -5,7 +5,7 @@ import TVCore
 /// found. With no search, the page offers to continue where listening stopped, then shelves of
 /// charts, playlists and new albums as Discover has for video, then what played recently.
 struct MusicView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var query = ""
     /// The query Return was pressed for: its direct hit plays once the search knows it. Typing
     /// something else clears it.
@@ -44,7 +44,7 @@ struct MusicView: View {
         }
         .screenBackdrop()
         .catalogSearchable(text: $query, prompt: L10n.text("Song, album or playlist"))
-        .onChange(of: query) { _, text in
+        .onChange(of: query) { text in
             if text.trimmingCharacters(in: .whitespacesAndNewlines) != autoPlayQuery { autoPlayQuery = nil }
             #if os(tvOS)
             // As in Global Search: typing only edits the query, and results change when it is
@@ -72,7 +72,7 @@ struct MusicView: View {
         #if DEBUG && os(tvOS)
         // `-qaNowPlayingTab 1` (with `-qaMusicPlay 1 -qaMusicStayOnPage 1`) moves to the sidebar's
         // Now Playing once the song is loaded, for screenshots.
-        .onChange(of: store.music.track != nil) { _, loaded in
+        .onChange(of: store.music.track != nil) { loaded in
             if loaded, UserDefaults.standard.bool(forKey: "qaNowPlayingTab") { store.section = .nowPlaying }
         }
         #endif
@@ -301,7 +301,7 @@ enum MusicLayout {
 
 /// The Music page with nothing searched: continue listening, shelves to browse, and what played recently.
 private struct MusicHome: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let openSettings: () -> Void
 
     var body: some View {
@@ -359,7 +359,7 @@ private struct MusicHome: View {
 }
 
 private struct MusicContinueCard: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let point: MusicResumePoint
     let track: MusicTrack
 
@@ -386,7 +386,7 @@ private struct MusicContinueCard: View {
 }
 
 struct MusicTrackRow: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let track: MusicTrack
     /// Its place in an album or playlist, shown instead of the cover.
     var number: Int?
@@ -475,7 +475,7 @@ private struct MusicCollectionRow: View {
 /// An album or playlist: its tracks, Play and Shuffle. Playing a track queues the whole list from it.
 struct MusicCollectionView: View {
     let collection: MusicCollection
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var tracks: [MusicTrack] = []
     @State private var loading = false
     @State private var error: String?
@@ -610,7 +610,7 @@ struct MusicLikedLink: View {
 /// The songs saved with Like, newest first. Play, Shuffle and Add to Up Next treat them as one list,
 /// so liking songs is all it takes to build a playlist.
 struct MusicLikedView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
 
     static var title: String { L10n.text("Liked Songs") }
 

@@ -9,7 +9,7 @@ import TVCore
 /// bar's button and Window ▸ Mini Player open it at any time, and those stay until closed.
 struct MusicMacMiniPlayer: View {
     static let windowID = "music-mini"
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismissWindow) private var dismissWindow
     @State private var hovering = false
 
@@ -49,7 +49,7 @@ struct MusicMacMiniPlayer: View {
         .onAppear { MusicMiniWindow.isOpen = true }
         .onDisappear { MusicMiniWindow.isOpen = false; MusicMiniWindow.openedForMinimize = false }
         // One opened for a minimized window goes with the song.
-        .onChange(of: music.track == nil) { _, gone in
+        .onChange(of: music.track == nil) { gone in
             if gone && MusicMiniWindow.openedForMinimize { dismissWindow(id: Self.windowID) }
         }
     }
@@ -107,7 +107,7 @@ struct MusicMacMiniPlayer: View {
 /// Behind the pages: minimizing their window while a song is loaded opens the mini player, and
 /// restoring it closes a mini player opened that way.
 struct MusicMiniPlayerTrigger: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
     #if DEBUG

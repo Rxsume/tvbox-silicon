@@ -2,7 +2,7 @@ import SwiftUI
 import TVCore
 
 struct LiveView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var query = ""
     private var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
     var body: some View {
@@ -214,7 +214,7 @@ private struct TVChannelGuide: View {
     let refreshing: Bool
     let error: String?
     let reload: () -> Void
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedChannel: String?
     @State private var showingSearch = false
@@ -266,7 +266,7 @@ private struct TVChannelGuide: View {
                             category(value.isEmpty ? L10n.text("Ungrouped") : value, value: value)
                         }
                     }.padding(4)
-                }.scrollClipDisabled().tvFocusSection()
+                }.tvFocusSection()
             }
 
             if loading {
@@ -293,7 +293,7 @@ private struct TVChannelGuide: View {
                                     .focused($focusedChannel, equals: channel.id)
                             }
                         }.padding(4)
-                    }.scrollClipDisabled().tvFocusSection()
+                    }.tvFocusSection()
                 }
             }
         }
@@ -410,7 +410,7 @@ private struct TVGuideCategoryStyle: ButtonStyle {
 #endif
 
 struct FavoritesView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     /// The kind the chips show alone, e.g. only live channels (#480); empty shows every kind.
     @AppStorage("favoritesFilter") private var filterKind = ""
     /// The chosen kind while there are favorites of it; else everything, so the page is never empty.
@@ -544,7 +544,7 @@ struct FavoritesView: View {
 
 /// Opens a saved film on its detail page, or reports that the source is gone.
 struct FavoriteVideoOpener<Label: View>: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.stripDrag) private var drag
     private let video: FavoriteVideo
     private let label: Label
@@ -617,7 +617,7 @@ private struct FavoriteFilmCard: View {
 
 /// A saved episode. Playing it does not remove the film favorite, and the heart removes only this episode.
 private struct FavoriteEpisodeCard: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let episode: FavoriteEpisode
     @State private var hovering = false
     private var heartRevealed: Bool {
@@ -670,7 +670,7 @@ private struct FavoriteEpisodeCard: View {
 
 /// A saved cloud file, using the same panel as a channel card and the file row's label.
 private struct FavoriteCloudRow: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let file: FavoriteCloudFile
 
     var body: some View {
@@ -727,7 +727,7 @@ struct ChannelLogo: View {
 }
 
 struct ChannelCard: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.stripDrag) private var drag
     let channel: Channel
     var body: some View {
@@ -746,7 +746,7 @@ struct ChannelCard: View {
             Button { if drag?.active != true { store.toggleFavorite(channel) } } label: {
                 Image(systemName: favorite ? "heart.fill" : "heart")
                     .font(.title3).foregroundStyle(favorite ? Brand.rose : .secondary)
-                    .frame(width: 44, height: 44).contentTransition(.symbolEffect(.replace))
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(favorite ? L10n.text("Remove %@ from favorites", channel.name) : L10n.text("Add %@ to favorites", channel.name))

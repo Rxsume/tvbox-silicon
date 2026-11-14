@@ -296,7 +296,7 @@ extension View {
                 .background { Backdrop() }
                 #endif
             // Only when there is room to spare: a zero margin would replace the system's own insets.
-            if extra > 0 { form.contentMargins(.horizontal, extra, for: .scrollContent) } else { form }
+            if extra > 0, #available(iOS 17, *) { form.contentMargins(.horizontal, extra, for: .scrollContent) } else { form }
         }
         .screenTitle(title, width: Layout.settingsWidth)
     }
@@ -338,8 +338,8 @@ private enum SettingsNote {
 }
 
 struct FormSettingsView: View {
-    @Environment(Store.self) private var store
-    @Environment(Updates.self) private var updates
+    @EnvironmentObject private var store: Store
+    @EnvironmentObject private var updates: Updates
     @State private var cloudSummary = ""
     @State private var bilibiliSummary = ""
     @State private var douyinSummary = ""
@@ -379,7 +379,6 @@ struct FormSettingsView: View {
     }
 
     var body: some View {
-        @Bindable var store = store
         ScrollViewReader { proxy in
         Form { Group {
             heroSection
@@ -559,7 +558,7 @@ struct FormSettingsView: View {
                     FormLabel(symbol: "icloud.fill", tint: .blue, title: L10n.text("iCloud Sync"))
                 }
                 .settingsSwitch()
-                .onChange(of: syncsWithICloud) { _, on in store.cloudSync?.setEnabled(on) }
+                .onChange(of: syncsWithICloud) { on in store.cloudSync?.setEnabled(on) }
             } footer: {
                 Text(SettingsNote.iCloud)
             }
@@ -588,7 +587,7 @@ struct FormSettingsView: View {
                 } label: {
                     FormLabel(symbol: "globe", tint: .blue, title: L10n.text("Language"))
                 }
-                .onChange(of: language) { _, code in MacLanguage.choose(code) }
+                .onChange(of: language) { code in MacLanguage.choose(code) }
                 .accessibilityIdentifier("settings.language")
                 .id("settings.language")
                 if language != MacLanguage.launched {
@@ -614,7 +613,7 @@ struct FormSettingsView: View {
                         FormLabel(symbol: "tv.and.mediabox.fill", tint: BilibiliMark.blue, title: L10n.text("Cast from the Bilibili App"),
                                   subtitle: L10n.text("With your phone on the same network, tap the TV button in a Bilibili video and choose %@.", L10n.text("Yingxia")))
                     }
-                    .onChange(of: receivesCasts) { _, on in
+                    .onChange(of: receivesCasts) { on in
                         if on { BilibiliCastController.shared.start(store) } else { BilibiliCastController.shared.stop() }
                     }
                 }
@@ -623,7 +622,7 @@ struct FormSettingsView: View {
                               subtitle: L10n.text("With Yingxia open here, your other devices on the same network can send it what they play: tap Play On in their player."))
                 }
                 .settingsSwitch()
-                .onChange(of: receivesPlayOn) { _, on in
+                .onChange(of: receivesPlayOn) { on in
                     if on { PlayOnController.shared.start(store) } else { PlayOnController.shared.stop() }
                 }
                 Toggle(isOn: $showsPlaybackInfo) {
@@ -670,7 +669,7 @@ struct FormSettingsView: View {
                     FormLabel(symbol: "ladybug.fill", tint: .red, title: L10n.text("Send Error Reports"), subtitle: errorReportsNote)
                 }
                 .settingsSwitch()
-                .onChange(of: sendsErrorReports) { _, on in if !on { ErrorReports.shared.discard() } }
+                .onChange(of: sendsErrorReports) { on in if !on { ErrorReports.shared.discard() } }
                 Toggle(isOn: $looksUpTMDB) {
                     FormLabel(symbol: "film.stack.fill", tint: .teal, title: L10n.text("Look Up Titles on TMDB"), subtitle: tmdbNote)
                 }
@@ -958,7 +957,7 @@ private struct PressableStyle: ButtonStyle {
 
 /// Playback on iPhone and iPad: the player's gestures, danmaku and picture, each note under the group it explains.
 struct PlaybackSettingsView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @AppStorage(DanmakuPreference.key) private var showsDanmaku = true
     @AppStorage(SpeedBoost.key) private var holdSpeed = SpeedBoost.standard
     @AppStorage(PictureLevel.key) private var slidesLevels = true
@@ -1042,7 +1041,7 @@ struct PrivacySettingsView: View {
                     FormLabel(symbol: "ladybug.fill", tint: .red, title: L10n.text("Send Error Reports"))
                 }
                 .settingsSwitch()
-                .onChange(of: sendsErrorReports) { _, on in if !on { ErrorReports.shared.discard() } }
+                .onChange(of: sendsErrorReports) { on in if !on { ErrorReports.shared.discard() } }
             }
             SettingsGroup(footer: SettingsNote.tmdb) {
                 Toggle(isOn: $looksUpTMDB) {
@@ -1057,14 +1056,13 @@ struct PrivacySettingsView: View {
 /// Adding a subscription: the address, a shortcut to the default one, and Add in the toolbar.
 /// Closes itself once the import succeeds; a failure stays here under the field.
 private struct AddSubscriptionSheet: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focused: Bool
     @State private var choosesFile = false
     private var canAdd: Bool { !store.importing && !store.subscriptionAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     var body: some View {
-        @Bindable var store = store
         NavigationStack {
             Form { Group {
                 Section {
@@ -1130,7 +1128,7 @@ enum SubscriptionFile {
 
 /// One subscription: switch it on or off, move it (earlier subscriptions win duplicate sources), or remove it.
 private struct SubscriptionDetailView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     let entry: SubscriptionEntry
     @State private var confirmsRemoval = false
@@ -1178,7 +1176,7 @@ private struct SubscriptionDetailView: View {
 
 /// Removing many subscriptions at once: tick them, or take all or the switched-off ones, then remove.
 private struct RemoveSubscriptionsView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     @State private var selection: Set<String> = []
     @State private var confirmsRemoval = false
@@ -1223,7 +1221,7 @@ private struct RemoveSubscriptionsView: View {
 
 /// Playing a media address directly.
 private struct PlayURLView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var address = ""
     private var empty: Bool { address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     var body: some View {
@@ -1640,8 +1638,8 @@ private struct DiagnosticDetail: View {
 // and anything that needs typing or choosing opens a page of its own.
 
 struct TVSettingsView: View {
-    @Environment(Store.self) private var store
-    @Environment(Updates.self) private var updates
+    @EnvironmentObject private var store: Store
+    @EnvironmentObject private var updates: Updates
     @State private var cloudSummary = ""
     @State private var bilibiliSummary = ""
     @State private var douyinSummary = ""
@@ -1688,7 +1686,7 @@ struct TVSettingsView: View {
             }
             TVSettingsSection(footer: L10n.text("Keeps favorites, Continue Watching, subscriptions, and the sources you pinned, hid or ordered the same on your devices signed in to the same iCloud account. Accounts, passwords and downloads stay on each device.")) {
                 TVSettingsToggle(title: L10n.text("iCloud Sync"), isOn: $syncsWithICloud)
-                    .onChange(of: syncsWithICloud) { _, on in store.cloudSync?.setEnabled(on) }
+                    .onChange(of: syncsWithICloud) { on in store.cloudSync?.setEnabled(on) }
             }
             TVSettingsSection {
                 TVSettingsLink(title: L10n.text("Watch Now")) { WatchNowSettingsView() }
@@ -1698,12 +1696,12 @@ struct TVSettingsView: View {
                     TVSettingsToggle(title: L10n.text("Show Danmaku"), isOn: $showsDanmaku)
                     TVSettingsLink(title: L10n.text("Danmaku Settings")) { DanmakuSettingsView() }
                     TVSettingsToggle(title: L10n.text("Cast from the Bilibili App"), isOn: $receivesCasts)
-                        .onChange(of: receivesCasts) { _, on in
+                        .onChange(of: receivesCasts) { on in
                             if on { BilibiliCastController.shared.start(store) } else { BilibiliCastController.shared.stop() }
                         }
                 }
                 TVSettingsToggle(title: L10n.text("Play from Other Devices"), isOn: $receivesPlayOn)
-                    .onChange(of: receivesPlayOn) { _, on in
+                    .onChange(of: receivesPlayOn) { on in
                         if on { PlayOnController.shared.start(store) } else { PlayOnController.shared.stop() }
                     }
                 TVSettingsLink(title: L10n.text("Play a URL")) { TVPlayURLPage() }
@@ -1725,7 +1723,7 @@ struct TVSettingsView: View {
                 if store.extrasUnlocked { TVSettingsLink(title: L10n.text("JAR Runtime and Compatibility")) { RuntimeView() } }
                 TVSettingsLink(title: L10n.text("Diagnostic Logs")) { DiagnosticsView() }
                 TVSettingsToggle(title: L10n.text("Send Error Reports"), isOn: $sendsErrorReports)
-                    .onChange(of: sendsErrorReports) { _, on in if !on { ErrorReports.shared.discard() } }
+                    .onChange(of: sendsErrorReports) { on in if !on { ErrorReports.shared.discard() } }
                 TVSettingsToggle(title: L10n.text("Look Up Titles on TMDB"), isOn: $looksUpTMDB)
             }
             if updates.available.isEmpty, Updates.channel != .none { updateSection }
@@ -1817,7 +1815,7 @@ struct TVSettingsLayout<Hero: View, List: View>: View {
                     .glassRowInsets()
                     .padding(.vertical, 40)
             }
-            .scrollClipDisabled()
+            
             .tvFocusSection()
         }
         .padding(.horizontal, Layout.gutter)
@@ -1975,7 +1973,7 @@ struct TVSettingsField: View {
         }
         // Closing the alert any way but Cancel keeps the text. tvOS 18 also shows the text field as a second
         // button under it, which closes the alert without running any action, so a typed address was lost (#291).
-        .onChange(of: editing) { _, open in
+        .onChange(of: editing) { open in
             if !open, !cancelled { text = draft.trimmingCharacters(in: .whitespacesAndNewlines) }
         }
     }
@@ -2007,7 +2005,7 @@ struct TVSettingsSubpage<Content: View>: View {
 
 /// One subscription: switch it on or off, move it (earlier subscriptions win duplicate sources), or remove it.
 private struct TVSubscriptionPage: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     let entry: SubscriptionEntry
     @State private var confirmsRemoval = false
@@ -2043,7 +2041,7 @@ private struct TVSubscriptionPage: View {
 
 /// Removing many subscriptions at once: tick them, or take all or the switched-off ones, then remove.
 private struct TVRemoveSubscriptionsPage: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     @State private var selection: Set<String> = []
     @State private var confirmsRemoval = false
@@ -2083,10 +2081,9 @@ private struct TVRemoveSubscriptionsPage: View {
 
 /// Adding a subscription: the address, then add it or fill in the default one.
 private struct TVAddSubscriptionPage: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        @Bindable var store = store
         let empty = store.subscriptionAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         TVSettingsSubpage(symbol: "plus.rectangle.on.rectangle", title: L10n.text("Add Subscription")) {
             TVSettingsSection(title: L10n.text("Subscription"), footer: store.importError ?? store.notice) {
@@ -2107,7 +2104,7 @@ private struct TVAddSubscriptionPage: View {
 
 /// Playing a media address directly.
 private struct TVPlayURLPage: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var address = ""
     var body: some View {
         TVSettingsSubpage(symbol: "play.rectangle", title: L10n.text("Play a URL")) {
@@ -2127,11 +2124,11 @@ private struct TVPlayURLPage: View {
 // MARK: Contributors
 
 /// The last 30 days' contributors that Settings lists, kept between launches and asked for at most every six hours.
-@MainActor @Observable final class ContributorList {
+@MainActor final class ContributorList: ObservableObject {
     static let shared = ContributorList()
     /// At most this many rows; the list is ranked, so the rest have the fewest commits.
     static let shown = 20
-    private(set) var people: [Contributor]
+    @Published private(set) var people: [Contributor]
     private var checking = false
     private let defaults: UserDefaults
     private static let interval: TimeInterval = 6 * 60 * 60

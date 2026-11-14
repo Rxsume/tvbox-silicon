@@ -7,7 +7,7 @@ import TVCore
 /// bottom of the window, on every page. The transport is on the left, the song in the middle (a
 /// click opens Now Playing), and the menu, lyrics, Up Next, AirPlay and volume on the right.
 struct MusicMacBar: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.openWindow) private var openWindow
     @State private var showsVolume = false
     @State private var showsChannels = false
@@ -102,7 +102,7 @@ extension View {
 }
 
 private struct MusicBarInset: ViewModifier {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     func body(content: Content) -> some View {
         content.safeAreaInset(edge: .bottom, spacing: 0) { if store.music.showsStrip(videoPlaying: store.playing != nil) { MusicMacBar() } }
     }
@@ -143,7 +143,7 @@ struct NowPlayingWindowChrome: NSViewRepresentable {
                 window.titlebarAppearsTransparent = true
             }
             window.titleVisibility = .hidden
-            let host = NSHostingView(rootView: MusicMacWindowControls().environment(store).environment(\.colorScheme, .dark))
+            let host = NSHostingView(rootView: MusicMacWindowControls().environmentObject(store).environment(\.colorScheme, .dark))
             host.frame.size = host.fittingSize
             let accessory = NSTitlebarAccessoryViewController()
             accessory.layoutAttribute = .trailing
@@ -172,7 +172,7 @@ struct NowPlayingWindowChrome: NSViewRepresentable {
 
 /// AirPlay, volume and Close, in one glass capsule at the top right of Now Playing.
 private struct MusicMacWindowControls: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     var body: some View {
         HStack(spacing: 10) {
             MusicMacRoutePicker(player: store.music.player, color: .white).frame(width: 20, height: 20).help(L10n.text("AirPlay"))
@@ -195,7 +195,7 @@ private struct MusicMacWindowControls: View {
 
 /// The song's progress as a hairline along the bottom of the bar's middle.
 struct MusicMacProgressLine: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     var body: some View {
         let music = store.music
         let total = music.duration ?? 0
@@ -231,7 +231,7 @@ struct MusicMacButton: View {
                 .frame(width: frame, height: frame)
                 .background(Color.primary.opacity(on ? 0.14 : hovering && enabled ? 0.07 : 0), in: Circle())
                 .contentShape(Circle())
-                .contentTransition(.symbolEffect(.replace))
+                
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -243,7 +243,7 @@ struct MusicMacButton: View {
 
 /// Play or pause; a spinner while a channel is found, Retry after a failure.
 struct MusicMacPlayButton: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     var size: CGFloat
     var frame: CGFloat
     var body: some View {
@@ -261,7 +261,7 @@ struct MusicMacPlayButton: View {
 
 /// The song's menu: what is playing and from where, Channels, lyrics timing, and Stop.
 private struct MusicMacMenu: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Binding var showsChannels: Bool
     var body: some View {
         let music = store.music
@@ -299,15 +299,14 @@ private struct MusicMacMenu: View {
 
 /// The player's volume between a quiet and a loud speaker.
 struct MusicMacVolume: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     static func symbol(_ volume: Double) -> String {
         volume <= 0 ? "speaker.slash.fill" : volume < 0.34 ? "speaker.wave.1.fill" : volume < 0.67 ? "speaker.wave.2.fill" : "speaker.wave.3.fill"
     }
     var body: some View {
-        @Bindable var music = store.music
         HStack(spacing: 8) {
             Image(systemName: "speaker.fill").font(.caption).foregroundStyle(.secondary)
-            Slider(value: $music.volume, in: 0...1).appControlSize(.small)
+            Slider(value: store.music.$volume, in: 0...1).appControlSize(.small)
             Image(systemName: "speaker.wave.3.fill").font(.caption).foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .contain)
@@ -333,7 +332,7 @@ struct MusicMacRoutePicker: NSViewRepresentable {
 /// backdrop blurred from the cover, and the lyrics or Up Next filling the right. Escape, the close
 /// button or the bar's song closes it.
 struct MusicMacNowPlaying: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var tint = Color(white: 0.22)
     @State private var showsChannels = false
     @AppStorage("musicShowsTranslation") private var showsTranslation = true
@@ -379,7 +378,7 @@ struct MusicMacNowPlaying: View {
             guard let url = music.track?.artwork, let color = await PosterPalette.average(url) else { return }
             withAnimation(.easeInOut(duration: 0.6)) { tint = color }
         }
-        .onChange(of: music.track == nil) { _, gone in if gone { music.presentsPlayer = false } }
+        .onChange(of: music.track == nil) { gone in if gone { music.presentsPlayer = false } }
         .sheet(isPresented: $showsChannels) { MusicChannelsView() }
     }
 

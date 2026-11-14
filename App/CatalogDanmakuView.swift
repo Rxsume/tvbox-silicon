@@ -3,12 +3,12 @@ import AVKit
 import TVCore
 import UniformTypeIdentifiers
 
-@MainActor @Observable final class CatalogDanmakuModel: NSObject {
-    private(set) var comments: [CatalogDanmakuComment] = []
-    private(set) var track = ""
-    private(set) var revision = UUID()
-    var offset = 0.0
-    var enabled = UserDefaults.standard.object(forKey: "danmakuEnabled") == nil ? true : UserDefaults.standard.bool(forKey: "danmakuEnabled") {
+@MainActor final class CatalogDanmakuModel: NSObject, ObservableObject {
+    @Published private(set) var comments: [CatalogDanmakuComment] = []
+    @Published private(set) var track = ""
+    @Published private(set) var revision = UUID()
+    @Published var offset = 0.0
+    @Published var enabled = UserDefaults.standard.object(forKey: "danmakuEnabled") == nil ? true : UserDefaults.standard.bool(forKey: "danmakuEnabled") {
         didSet {
             guard enabled != oldValue, !synchronizingPreferences else { return }
             UserDefaults.standard.set(enabled, forKey: "danmakuEnabled")
@@ -16,7 +16,7 @@ import UniformTypeIdentifiers
             else if comments.isEmpty { resumeAutomatic() }
         }
     }
-    var automatic = UserDefaults.standard.object(forKey: DanmakuService.automaticKey) == nil ? true : UserDefaults.standard.bool(forKey: DanmakuService.automaticKey) {
+    @Published var automatic = UserDefaults.standard.object(forKey: DanmakuService.automaticKey) == nil ? true : UserDefaults.standard.bool(forKey: DanmakuService.automaticKey) {
         didSet {
             guard automatic != oldValue, !synchronizingPreferences else { return }
             UserDefaults.standard.set(automatic, forKey: DanmakuService.automaticKey)
@@ -24,10 +24,10 @@ import UniformTypeIdentifiers
         }
     }
     /// Applies to every track, Bilibili's own and live rooms included; the player's danmaku menu sets it too.
-    var opacity = UserDefaults.standard.object(forKey: DanmakuStyle.opacityKey) as? Double ?? DanmakuStyle.standardOpacity {
+    @Published var opacity = UserDefaults.standard.object(forKey: DanmakuStyle.opacityKey) as? Double ?? DanmakuStyle.standardOpacity {
         didSet { if opacity != oldValue { UserDefaults.standard.set(opacity, forKey: DanmakuStyle.opacityKey) } }
     }
-    var fontSize = UserDefaults.standard.object(forKey: DanmakuStyle.fontSizeKey) as? Double ?? DanmakuStyle.standardFontSize {
+    @Published var fontSize = UserDefaults.standard.object(forKey: DanmakuStyle.fontSizeKey) as? Double ?? DanmakuStyle.standardFontSize {
         didSet { if fontSize != oldValue { UserDefaults.standard.set(fontSize, forKey: DanmakuStyle.fontSizeKey) } }
     }
     private var generation = UUID()
@@ -38,14 +38,14 @@ import UniformTypeIdentifiers
     private var allowsAutomatic = true
     private var manuallySelected = false
     private var selectedOverridesSource = false
-    @ObservationIgnored private var currentResolver: DanmakuResolver?
-    @ObservationIgnored private var synchronizingPreferences = false
-    @ObservationIgnored private var preferences = Preferences.load()
-    @ObservationIgnored private var preferencesTask: Task<Void, Never>?
-    @ObservationIgnored private var retriesSavedPreferences = false
-    private(set) var automaticState = "idle"
-    private(set) var source = ""
-    private(set) var fromCache = false
+    private var currentResolver: DanmakuResolver?
+    private var synchronizingPreferences = false
+    private var preferences = Preferences.load()
+    private var preferencesTask: Task<Void, Never>?
+    private var retriesSavedPreferences = false
+    @Published private(set) var automaticState = "idle"
+    @Published private(set) var source = ""
+    @Published private(set) var fromCache = false
     var context: PlaybackHistoryContext? { automaticContext }
     /// Native source comments remain the default; an explicit service/platform or manual track takes priority.
     var overridesSourceComments: Bool { !comments.isEmpty && (manuallySelected || selectedOverridesSource) }
@@ -125,8 +125,8 @@ import UniformTypeIdentifiers
         }
     }
 
-    @ObservationIgnored private var renderedKey: String?
-    @ObservationIgnored private var rendered: [Danmaku] = []
+    private var renderedKey: String?
+    private var rendered: [Danmaku] = []
     var renderedRevision: String { "\(revision):\(offset)" }
     var renderedComments: [Danmaku] {
         let key = renderedRevision
@@ -271,7 +271,7 @@ import UniformTypeIdentifiers
 
 #if !os(tvOS)
 struct CatalogDanmakuSettingsView: View {
-    let model: CatalogDanmakuModel
+    @ObservedObject var model: CatalogDanmakuModel
     let channelName: String
     @Environment(\.dismiss) private var dismiss
     @AppStorage(DanmakuService.serverKey) private var server = CatalogDanmakuClient.defaultServer
@@ -288,7 +288,6 @@ struct CatalogDanmakuSettingsView: View {
     @State private var showsImporter = false
 
     var body: some View {
-        @Bindable var model = model
         NavigationStack {
             ScrollViewReader { proxy in
                 Form {
@@ -379,8 +378,8 @@ struct CatalogDanmakuSettingsView: View {
         #endif
         .onAppear { keyword = channelName.components(separatedBy: " · ").first ?? channelName }
         .onDisappear { cancelWork() }
-        .onChange(of: server) { _, _ in resetSearch() }
-        .onChange(of: preferredSource) { _, _ in resetSearch() }
+        .onChange(of: server) { _ in resetSearch() }
+        .onChange(of: preferredSource) { _ in resetSearch() }
         .onReceive(NotificationCenter.default.publisher(for: DanmakuService.changed)) { _ in resetSearch() }
         .fileImporter(isPresented: $showsImporter, allowedContentTypes: [.xml, .json]) { result in
             do { try model.importFile(result.get()); dismiss() }

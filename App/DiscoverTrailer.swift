@@ -119,16 +119,16 @@ struct DiscoverTrailerFraming: Equatable {
     }
 }
 
-@MainActor @Observable private final class DiscoverTrailerPlayback {
+@MainActor private final class DiscoverTrailerPlayback: ObservableObject {
     let player = AVQueuePlayer()
-    var ready = false
+    @Published var ready = false
     /// Nil until a frame has been looked at.
-    var framing: DiscoverTrailerFraming?
+    @Published var framing: DiscoverTrailerFraming?
     /// Bars known, or given up on after a few seconds of frames that couldn't be read: the video may show.
-    var framed = false
-    @ObservationIgnored private var ticks = 0
-    @ObservationIgnored private var output: AVPlayerItemVideoOutput?
-    @ObservationIgnored private var samples = 0
+    @Published var framed = false
+    private var ticks = 0
+    private var output: AVPlayerItemVideoOutput?
+    private var samples = 0
     private var looper: AVPlayerLooper?
     private var observer: Any?
     private var generation = 0
@@ -218,7 +218,7 @@ struct DiscoverTrailer: View {
             .opacity(playback.ready && playback.framed ? 1 : 0)
             .animation(.easeOut(duration: 0.4), value: playback.ready && playback.framed)
             .accessibilityHidden(true)
-            .onChange(of: playback.ready && playback.framed) { _, ready in readyChanged(ready) }
+            .onChange(of: playback.ready && playback.framed) { ready in readyChanged(ready) }
             .task(id: trailer) { await playback.load(trailer) }
             .onDisappear { playback.stop() }
     }

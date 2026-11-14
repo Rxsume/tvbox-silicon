@@ -10,7 +10,7 @@ struct PlaybackView: View {
     var watch: WatchPlayback? = nil
     #endif
     @Environment(\.dismiss) private var dismiss
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var session = PlaybackSession()
     @State private var showsChrome = true
     @State private var hideTask: Task<Void, Never>?
@@ -70,7 +70,7 @@ struct PlaybackView: View {
                                  markSkip: { session.markSkip(intro: $0) },
                                  chapters: session.chapters,
                                  exitWhileWaiting: session.showsPicture ? nil : { dismiss() }, episodes: episodeChoices, transportBar: transportBar,
-                                 titleRow: AnyView(TVPlayerTitleRow(channel: channel, session: session, transportBar: transportBar).environment(store))).ignoresSafeArea()
+                                 titleRow: AnyView(TVPlayerTitleRow(channel: channel, session: session, transportBar: transportBar).environmentObject(store))).ignoresSafeArea()
                     .onAppear { playbackSpeed = session.player.defaultRate }
             }
             // Until the picture starts, AVKit's player keeps the Back press to itself, so a stream that never
@@ -143,7 +143,7 @@ struct PlaybackView: View {
         .onContinuousHover { _ in poke() }
         #if os(iOS)
         // The controls stay up while paused and start their countdown again on play.
-        .onChange(of: session.paused) { _, paused in if paused { hideTask?.cancel() } else if showsChrome { scheduleHide() } }
+        .onChange(of: session.paused) { paused in if paused { hideTask?.cancel() } else if showsChrome { scheduleHide() } }
         #else
         .simultaneousGesture(TapGesture().onEnded { poke() })
         #endif
@@ -163,13 +163,13 @@ struct PlaybackView: View {
             if !Task.isCancelled { toggleFullScreen() }
         }
         #endif
-        .onChange(of: channel) { _, channel in startCatalogPlayback(session, channel: channel, store: store); showOnStart(opening: false) }
+        .onChange(of: channel) { channel in startCatalogPlayback(session, channel: channel, store: store); showOnStart(opening: false) }
         #if os(iOS)
-        .onChange(of: session.showsPicture || session.error != nil, initial: true) { _, started in watch?.started(started) }
+        .onChange(of: session.showsPicture || session.error != nil) { started in watch?.started(started) }
         .onAppear { watch?.opened(session) }
         #endif
-        .onChange(of: showsDanmaku) { _, value in session.catalogDanmaku.enabled = value }
-        .onChange(of: session.catalogDanmaku.enabled) { _, value in showsDanmaku = value }
+        .onChange(of: showsDanmaku) { value in session.catalogDanmaku.enabled = value }
+        .onChange(of: session.catalogDanmaku.enabled) { value in showsDanmaku = value }
         .onDisappear {
             hideTask?.cancel(); store.cancelEpisodeSelection(); session.stop()
             #if os(iOS)
@@ -180,7 +180,7 @@ struct PlaybackView: View {
         #if os(iOS)
         // Opening iPhone Duo moves the app to the inner display, which ignores orientations: drop a
         // landscape lock so the outer display isn't left in landscape when it closes again.
-        .onChange(of: horizontalSizeClass == .regular && verticalSizeClass == .regular) { _, large in
+        .onChange(of: horizontalSizeClass == .regular && verticalSizeClass == .regular) { large in
             if large { PlayerOrientation.release() }
         }
         #endif
@@ -218,7 +218,7 @@ struct PlaybackView: View {
             labels: catalog.labels, current: channel.historyContext?.episode(in: episodes)?.id,
             busy: store.resolvingEpisode != nil,
             select: { store.selectEpisode($0, from: channel) },
-            panel: { AnyView(TVPlayerEpisodesPanel(channel: channel).environment(store)) })
+            panel: { AnyView(TVPlayerEpisodesPanel(channel: channel).environmentObject(store)) })
     }
     #endif
 
@@ -1305,8 +1305,8 @@ private struct NativePlayerView: UIViewControllerRepresentable {
 
 /// Auto-hiding chrome driven by real pointer movement and key presses (not hover
 /// phases, which AVPlayerView's own overlay and layout passes keep re-firing).
-@MainActor @Observable private final class ChromeIdle {
-    var visible = true
+@MainActor private final class ChromeIdle: ObservableObject {
+    @Published var visible = true
     private var task: Task<Void, Never>?
     private var monitor: Any?
     private weak var window: NSWindow?
@@ -1379,13 +1379,13 @@ private struct DesktopPlaybackRoot: View {
     let session: PlaybackSession
     let window: PlaybackWindow
     let store: Store
-    var body: some View { DesktopPlaybackView(channel: channel, session: session, window: window).environment(store) }
+    var body: some View { DesktopPlaybackView(channel: channel, session: session, window: window).environmentObject(store) }
 }
 
 private struct DesktopPlaybackView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let channel: Channel
-    @Bindable var session: PlaybackSession
+    @ObservedObject var session: PlaybackSession
     let window: PlaybackWindow
     @State private var fillsFrame = false
     @State private var floats = false
@@ -1447,9 +1447,9 @@ private struct DesktopPlaybackView: View {
         }
         .preferredColorScheme(.dark)
         .ignoresSafeArea()
-        .onChange(of: showsDanmaku) { _, value in session.catalogDanmaku.enabled = value }
-        .onChange(of: session.catalogDanmaku.enabled) { _, value in showsDanmaku = value }
-        .onChange(of: floats) { _, value in window.level = value ? .floating : .normal }
+        .onChange(of: showsDanmaku) { value in session.catalogDanmaku.enabled = value }
+        .onChange(of: session.catalogDanmaku.enabled) { value in showsDanmaku = value }
+        .onChange(of: floats) { value in window.level = value ? .floating : .normal }
         // Each picture that appears (the next episode too) shapes the window; the size arrives a moment after it.
         .task(id: session.showsPicture) {
             guard session.showsPicture else { return }
@@ -1462,10 +1462,10 @@ private struct DesktopPlaybackView: View {
                 if Task.isCancelled { return }
             }
         }
-        .onChange(of: showsChrome) { _, value in setTrafficLights(visible: value) }
+        .onChange(of: showsChrome) { value in setTrafficLights(visible: value) }
         .onAppear { floats = window.level == .floating; idle.attach(window); tvBrowser.start() }
         // Played here again (Space, say): the other device no longer has it to itself.
-        .onChange(of: session.paused) { _, paused in if !paused { playingOn = nil } }
+        .onChange(of: session.paused) { paused in if !paused { playingOn = nil } }
         .playerEpisodesSheet(isPresented: $showsEpisodes, channel: channel)
         .sheet(isPresented: $showsDanmakuList) {
             DanmakuListView(player: session.player, comments: session.danmaku) { showsDanmakuList = false }
@@ -1562,9 +1562,9 @@ private struct DesktopPlaybackView: View {
 /// live room every chat message evaluates the player's body again; built again with it, an open menu shut the submenu
 /// under the pointer, so Quality, Text Size and the others flickered and couldn't be picked (#846).
 private struct DesktopOptionsMenu: View, Equatable {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let channel: Channel
-    let session: PlaybackSession
+    @ObservedObject var session: PlaybackSession
     let window: PlaybackWindow
     /// Whether there are comments at all, not the comments: those change with every message.
     let hasDanmaku: Bool
@@ -1587,7 +1587,6 @@ private struct DesktopOptionsMenu: View, Equatable {
     }
 
     var body: some View {
-        @Bindable var session = session
         Menu {
             Toggle(L10n.text("Loop Playback"), isOn: $session.looping)
             Toggle(L10n.text("Fill Window"), isOn: $fillsFrame)
@@ -1919,7 +1918,7 @@ struct PlayerTitleLogo: View {
     let channel: Channel
     /// A phone held upright: a smaller logo.
     var compact = false
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var tmdb = TMDBLookup()
     @State private var aspect: CGFloat?
 
@@ -1960,8 +1959,8 @@ struct PlayerTitleLogo: View {
 
 #if os(tvOS)
 /// Whether AVKit's transport bar shows, as its delegate is told: the title row over it shows only then.
-@MainActor @Observable final class TransportBarVisibility {
-    var visible = false
+@MainActor final class TransportBarVisibility: ObservableObject {
+    @Published var visible = false
 }
 
 /// Over the transport bar while it shows, as on iPhone (#758, #520): the title's logo on the left, beside the scrubber's
@@ -2133,7 +2132,7 @@ struct PlayerChaptersView: View {
                 }
                 .padding(.horizontal, 80).padding(.vertical, 28)
             }
-            .scrollClipDisabled()
+            
             .defaultFocus($focused, playing ?? 0)
             .task {
                 now = player.currentTime().seconds.isFinite ? player.currentTime().seconds : 0

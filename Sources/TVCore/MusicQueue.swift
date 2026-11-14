@@ -1,5 +1,5 @@
 import Foundation
-import Observation
+import Combine
 
 /// The songs to play, in order, and where playback is in them: one song from search, or an album
 /// or playlist from the chosen track on.
@@ -83,7 +83,7 @@ public struct MusicHistoryEntry: Codable, Equatable, Identifiable, Sendable {
 }
 
 /// Songs played recently, newest first, and where to continue: kept in one file.
-@MainActor @Observable public final class MusicLibrary {
+@MainActor public final class MusicLibrary: ObservableObject {
     public static let shared = MusicLibrary(file: MusicLibrary.directory.appending(path: "music-library.json"))
     /// tvOS only keeps app files in Caches, as for subscriptions.
     static var directory: URL {
@@ -95,8 +95,8 @@ public struct MusicHistoryEntry: Codable, Equatable, Identifiable, Sendable {
     }
     public static let historyLimit = 200
 
-    public private(set) var history: [MusicHistoryEntry] = []
-    public private(set) var resumePoint: MusicResumePoint?
+    @Published public private(set) var history: [MusicHistoryEntry] = []
+    @Published public private(set) var resumePoint: MusicResumePoint?
     private let file: URL?
     private var saveTask: Task<Void, Never>?
 

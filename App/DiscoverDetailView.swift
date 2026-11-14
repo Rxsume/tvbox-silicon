@@ -5,7 +5,7 @@ import AVKit
 /// Catalog detail uses the same independent, full-bleed paint layer as the home hero.
 /// Available actions use Yingxia's source search and system share sheet.
 struct DiscoverDetailView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.scenePhase) private var scenePhase
     let item: TMDBCatalog.Item
     @State private var model = DiscoverDetailModel()
@@ -33,7 +33,7 @@ struct DiscoverDetailView: View {
         .onAppear { onScreen = true }
         .onDisappear { onScreen = false }
         .task(id: item.key) { await model.load(item) }
-        .onChange(of: details?.id) { _, _ in
+        .onChange(of: details?.id) { _ in
             if seasonNumber == nil { seasonNumber = seasons.first?.number }
         }
         .task(id: seasonNumber) { await loadSeason() }
@@ -87,7 +87,7 @@ struct DiscoverDetailView: View {
         // The movie player, full screen: SwiftUI's VideoPlayer in a sheet had no full screen, Fill or speed (#300).
         .fullScreenCover(isPresented: $trailerShown) {
             // Store handed in, as for every full-screen cover: the iPad app on a Mac leaves environment objects behind.
-            if let trailer = details?.trailer { DiscoverMobileTrailerScreen(trailer: trailer, title: details?.name ?? item.name).environment(store) }
+            if let trailer = details?.trailer { DiscoverMobileTrailerScreen(trailer: trailer, title: details?.name ?? item.name).environmentObject(store) }
         }
         #else
         .sheet(isPresented: $trailerShown) {
@@ -410,12 +410,12 @@ struct DiscoverDetailView: View {
     }
 }
 
-@MainActor @Observable private final class DiscoverDetailModel {
-    var details: TMDBMatch.Details?
-    var paint: DiscoverPaint?
-    var loading = true
-    var failed = false
-    var scrollY: CGFloat = 0
+@MainActor private final class DiscoverDetailModel: ObservableObject {
+    @Published var details: TMDBMatch.Details?
+    @Published var paint: DiscoverPaint?
+    @Published var loading = true
+    @Published var failed = false
+    @Published var scrollY: CGFloat = 0
     func load(_ item: TMDBCatalog.Item) async {
         loading = true; failed = false
         defer { loading = false }
@@ -507,18 +507,18 @@ private struct DiscoverMobileTrailerScreen: View {
 struct DiscoverSearchPresentation: ViewModifier {
     @Binding var isPresented: Bool
     @Environment(\.openRoute) private var openRoute
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     func body(content: Content) -> some View {
         #if os(iOS)
         // Store handed in: the iPad app on a Mac presents a full-screen cover without the presenter's environment objects.
-        content.fullScreenCover(isPresented: $isPresented) { DiscoverSearchView().environment(store) }
+        content.fullScreenCover(isPresented: $isPresented) { DiscoverSearchView().environmentObject(store) }
             // Search Sources on a detail page opened from here switches to the Search tab, which is behind this
             // full-screen sheet: close it so the source results show instead of the catalog search.
             .onChange(of: store.section) { if isPresented { isPresented = false } }
         #else
         // A page of its own (Back returns), rather than the iPhone's full-screen sheet: on the Mac with the toolbar's
         // search field, on the TV laid out for the remote.
-        content.onChange(of: isPresented) { _, shown in
+        content.onChange(of: isPresented) { shown in
             guard shown else { return }
             isPresented = false
             #if os(macOS)
@@ -582,7 +582,7 @@ extension DiscoverDetailView {
                 }
             }.padding(.bottom, 90)
         }
-        .scrollClipDisabled()
+        
         // Only crossing the hero's edge matters. A per-frame offset re-rendered the page on every scroll step, and a
         // sheet's presentation fed back into it until the watchdog killed the app.
         .modifier(DiscoverTVScrolled(scrolled: $tvScrolled))
@@ -716,7 +716,7 @@ extension DiscoverDetailView {
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: spacing) { content() }
                     .padding(.horizontal, DiscoverLayout.gutter).padding(.vertical, 24)
-            }.scrollClipDisabled()
+            }
         }.focusSection()
     }
 

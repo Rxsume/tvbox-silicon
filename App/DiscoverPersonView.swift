@@ -208,7 +208,7 @@ extension DiscoverPersonView {
     var tvPage: some View {
         // The header has nothing to focus; reaching the chips scrolls it back into view, as Up does in Rex.
         ScrollViewReader { proxy in
-            tvScroll.onChange(of: tvChip) { _, chip in
+            tvScroll.onChange(of: tvChip) { chip in
                 guard chip != nil else { return }
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) { proxy.scrollTo("tvTop", anchor: .top) }
             }
@@ -241,7 +241,7 @@ extension DiscoverPersonView {
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: contribution)
             }
         }
-        .scrollClipDisabled()
+        
         .background(color.ignoresSafeArea())
         .ignoresSafeArea(edges: .top)
         .toolbar(.hidden, for: .navigationBar)

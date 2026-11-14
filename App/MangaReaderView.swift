@@ -3,7 +3,7 @@ import TVCore
 
 /// The reading state: loaded chapters (vertical mode reads on from one into the next), where the viewer is,
 /// prefetching ahead, and the saved progress.
-@MainActor @Observable final class MangaReaderModel {
+@MainActor final class MangaReaderModel: ObservableObject {
     struct Chapter: Identifiable {
         let index: Int
         let pages: [String]
@@ -15,15 +15,15 @@ import TVCore
 
     let comic: MangaComic
     let chapters: [MangaChapter]
-    private(set) var loaded: [Chapter] = []
-    var position: Position
+    @Published private(set) var loaded: [Chapter] = []
+    @Published var position: Position
     /// Where to scroll or page to; the views clear it once there.
-    var target: Position?
-    private(set) var failure: String?
-    private(set) var loadingNext = false
+    @Published var target: Position?
+    @Published private(set) var failure: String?
+    @Published private(set) var loadingNext = false
     var mode: MangaReaderMode { didSet { MangaStore.shared.setMode(mode, for: comic) } }
     /// Page shapes (width / height) once known, so the column doesn't jump as pages load.
-    var aspects: [String: CGFloat] = [:]
+    @Published var aspects: [String: CGFloat] = [:]
     private var saved = Date.distantPast
     private var released = Date.distantPast
 
@@ -128,7 +128,7 @@ struct MangaReaderView: View {
     @State private var showsChapters = false
     @Environment(\.dismiss) private var dismiss
     #if os(macOS)
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     #endif
     private let start: MangaReading
 
@@ -343,7 +343,7 @@ struct MangaVerticalReader: View {
                 }
                 .frame(width: width)
             }
-            .onChange(of: model.target) { _, target in
+            .onChange(of: model.target) { target in
                 guard let target else { return }
                 reader.scrollTo(target, anchor: .top)
                 model.target = nil
@@ -455,11 +455,11 @@ struct MangaPagedReader: View {
         }
         .ignoresSafeArea()
         .onAppear { page = model.position.page }
-        .onChange(of: page) { _, value in
+        .onChange(of: page) { value in
             if value < count { model.seen(.init(chapter: model.position.chapter, page: value)) }
             else if model.hasNext { Task { await model.open(model.position.chapter + 1) } }
         }
-        .onChange(of: model.target) { _, target in
+        .onChange(of: model.target) { target in
             guard let target else { return }
             page = target.page
             model.target = nil

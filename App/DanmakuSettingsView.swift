@@ -367,7 +367,7 @@ private struct TVDanmakuSettingsPage: View {
                 .glassRowInsets()
                 .padding(.vertical, 40)
             }
-            .scrollClipDisabled()
+            
             .tvFocusSection()
         }
         .padding(.horizontal, Layout.gutter)
@@ -396,7 +396,7 @@ private struct TVDanmakuWordsPage: View {
         TVSettingsSubpage(symbol: "nosign", title: L10n.text("Blocked Words"), subtitle: DanmakuSettings.wordsNote) {
             TVSettingsSection {
                 TVSettingsField(title: L10n.text("Add Blocked Word"), text: $draft, prose: true, emptyValue: "")
-                    .onChange(of: draft) { _, word in
+                    .onChange(of: draft) { word in
                         guard !word.isEmpty else { return }
                         settings.add(word)
                         draft = ""

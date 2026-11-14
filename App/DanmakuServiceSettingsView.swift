@@ -84,8 +84,8 @@ struct DanmakuServiceSettings: View {
             } header: { Text(L10n.text("Danmaku Display")) }
         }
         }
-        .onChange(of: address) { _, _ in failure = nil; saved = false }
-        .onChange(of: server) { _, value in address = value }
+        .onChange(of: address) { _ in failure = nil; saved = false }
+        .onChange(of: server) { value in address = value }
     }
 
     private var source: DanmakuProvider { DanmakuProvider(rawValue: preferredSource) ?? .automatic }

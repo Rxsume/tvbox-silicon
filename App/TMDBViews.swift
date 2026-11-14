@@ -4,20 +4,20 @@ import TVCore
 
 /// A video page's TMDB details (`TMDBMatch`): what this device already knows shows at once; otherwise the lookup runs
 /// while the page is open and its steps show, since a title nobody opened before takes some seconds.
-@MainActor @Observable final class TMDBLookup {
+@MainActor final class TMDBLookup: ObservableObject {
     enum Phase: Equatable {
         case idle, looking, matched, ambiguous, notFound, failed, off
     }
-    private(set) var phase: Phase = .idle
+    @Published private(set) var phase: Phase = .idle
     /// The latest step worth showing: "thinking" between steps keeps the one before.
-    private(set) var step: TMDBMatch.Step = .starting
+    @Published private(set) var step: TMDBMatch.Step = .starting
     private(set) var details: TMDBMatch.Details? { didSet { refreshDouban() } }
     /// Douban's score for the matched work, when Wikidata links it to one (#505).
-    private(set) var douban: DoubanRating.Score?
+    @Published private(set) var douban: DoubanRating.Score?
     private var doubanFor: String?
-    private(set) var answer: TMDBMatch.Answer?
+    @Published private(set) var answer: TMDBMatch.Answer?
     /// The viewer chose the work (or "none of these") for this video.
-    private(set) var chosen = false
+    @Published private(set) var chosen = false
     private var key: String?
     private var request: TMDBMatch.Request?
 
@@ -281,7 +281,7 @@ struct TMDBChoices: View {
                 .padding(.vertical, TMDBMetrics.focusRoom)
             }
             .scrollIndicators(.never)
-            .scrollClipDisabled()
+            
         }
         .padding(14)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -372,7 +372,7 @@ struct TMDBPeopleRow: View {
                 .padding(.vertical, TMDBMetrics.focusRoom)
             }
             .scrollIndicators(.never)
-            .scrollClipDisabled()
+            
         }
     }
 
@@ -444,7 +444,7 @@ struct TMDBGenreRow: View {
                 .padding(.vertical, TMDBMetrics.focusRoom)
             }
             .scrollIndicators(.never)
-            .scrollClipDisabled()
+            
         }
     }
 
@@ -516,7 +516,7 @@ struct TMDBRelatedRow: View {
                 .padding(.vertical, TMDBMetrics.focusRoom)
             }
             .scrollIndicators(.never)
-            .scrollClipDisabled()
+            
         }
     }
 }

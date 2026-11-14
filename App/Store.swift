@@ -1,7 +1,7 @@
 import SwiftUI
 import TVCore
 
-@MainActor @Observable final class Store {
+@MainActor final class Store: ObservableObject {
     let searchModel = SearchModel()
     /// Song search and the music player; both outlive the Music page, so a song keeps playing elsewhere in the app.
     /// The Mac and Apple TV list every kind at once, in rows; a phone or iPad starts on songs.
@@ -24,54 +24,54 @@ import TVCore
     /// Keeps the viewer's library the same on their other devices; nil for tests and QA's isolated data.
     let cloudSync: CloudSync?
     /// The history entry being resumed; another entry, or leaving the page, replaces or cancels it.
-    private(set) var resumingHistoryID: String?
+    @Published private(set) var resumingHistoryID: String?
     private var resumeTask: Task<Void, Never>?
     /// Every enabled subscription merged in list order, plus configured cloud drives.
-    var subscription: Subscription?
+    @Published var subscription: Subscription?
     /// The address being typed in to add a subscription.
-    var subscriptionAddress: String
+    @Published var subscriptionAddress: String
     /// What to call the subscription being added; empty shows where it lives instead.
-    var subscriptionName = ""
+    @Published var subscriptionName = ""
     /// Every subscription the viewer added, in the order they merge.
-    var subscriptions: [SubscriptionEntry] = []
+    @Published var subscriptions: [SubscriptionEntry] = []
     /// Why a subscription last failed to refresh, by address; its last good copy stays in use.
-    var subscriptionErrors: [String: String] = [:]
+    @Published var subscriptionErrors: [String: String] = [:]
     /// The last good copy of each subscription, by address.
-    private(set) var documents: [String: Subscription] = [:]
+    @Published private(set) var documents: [String: Subscription] = [:]
     let favorites: Favorites
-    var importing = false
-    var error: String?
+    @Published var importing = false
+    @Published var error: String?
     /// Why the last subscription import failed. It shows under the address field, not in the app-wide alert: on
     /// iPhone and iPad that alert closed the Add Subscription sheet over it and took the viewer out of the form (#357).
-    var importError: String?
-    var notice: String?
-    var playing: Channel? {
+    @Published var importError: String?
+    @Published var notice: String?
+    @Published var playing: Channel? {
         // An episode of a listening source (audiobooks, radio, songs) plays in the music player instead (#289).
         didSet { if let channel = playing, let queue = listeningQueue(for: channel) { playing = nil; listen(queue, from: channel) } }
     }
     /// Set while a listening source's episode goes to the video player on purpose.
-    @ObservationIgnored private var playsAsVideo = false
+    private var playsAsVideo = false
     /// The videos whose iPhone watch page is on screen (`PlaybackHistoryContext.id`): their episodes play at the top
     /// of the page instead of in the full-screen player.
-    var watchPageScopes: Set<String> = []
+    @Published var watchPageScopes: Set<String> = []
     func playsInWatchPage(_ channel: Channel?) -> Bool {
         guard let scope = channel?.historyContext?.id else { return false }
         return watchPageScopes.contains(scope)
     }
-    var playbackCatalog: PlaybackCatalog?
+    @Published var playbackCatalog: PlaybackCatalog?
     /// The Cloud Files folder the playing file came from; its next file plays after it.
-    var filesFolder: CloudFilesFolder?
-    var resolvingEpisode: Episode?
-    var episodeError: String?
-    var autoPlayNext: Bool {
+    @Published var filesFolder: CloudFilesFolder?
+    @Published var resolvingEpisode: Episode?
+    @Published var episodeError: String?
+    @Published var autoPlayNext: Bool {
         didSet { if persistsChanges { defaults.set(autoPlayNext, forKey: "autoPlayNextEpisode") } }
     }
     private var episodeRequest = UUID()
     private var episodeTask: Task<Void, Never>?
-    var section: AppSection = .home
+    @Published var section: AppSection = .home
     /// The Mac sidebar folds away while the manga reader fills the window, and comes back when it closes.
     /// macOS 26 floats the sidebar over the page, so it covered the left part of every comic page.
-    var hidesSidebar = false
+    @Published var hidesSidebar = false
     /// Unlock additional sections once an enabled subscription has sources or live playlists.
     var extrasUnlocked: Bool {
         subscriptions.contains { $0.enabled && documents[$0.address].map { !$0.sites.isEmpty || !$0.lives.isEmpty } == true }
@@ -89,17 +89,17 @@ import TVCore
     /// Rebuilt source rows are expensive (every source is classified and copied) and Watch Now reads
     /// them many times while drawing one frame. The stamp is the inputs, so a later frame reuses the row.
     /// Not observed: views fill these while drawing, and a write would draw every reader again.
-    @ObservationIgnored private var siteListStamp = ""
-    @ObservationIgnored private var cloudDrivesObserver: NSObjectProtocol?
-    @ObservationIgnored private var livePluginsObserver: NSObjectProtocol?
+    private var siteListStamp = ""
+    private var cloudDrivesObserver: NSObjectProtocol?
+    private var livePluginsObserver: NSObjectProtocol?
     /// The installed live plugins' platforms, shown in Live TV even without a subscription.
-    private(set) var livePluginPlatforms = LivePlugins.shared.platforms
+    @Published private(set) var livePluginPlatforms = LivePlugins.shared.platforms
     /// Live TV's sources: the subscription's (with the plugins' platforms), or the plugins' alone.
     var liveSources: [LiveSource] { subscription?.lives ?? livePluginPlatforms.map(\.source) }
-    @ObservationIgnored private var automaticCache: [Site]?
-    @ObservationIgnored private var orderedCache: [Site]?
-    @ObservationIgnored private var recommendationCache: [Site]?
-    @ObservationIgnored private var groupsCache: [Bool: [SourceGroup]] = [:]
+    private var automaticCache: [Site]?
+    private var orderedCache: [Site]?
+    private var recommendationCache: [Site]?
+    private var groupsCache: [Bool: [SourceGroup]] = [:]
     /// What the cached rows were built from: the merged subscription, which subscriptions are on, and the viewer's pins, hides, and order.
     private func currentSiteListStamp() -> String {
         let imported = subscription?.importedAt.timeIntervalSince1970 ?? 0

@@ -67,7 +67,7 @@ import TVCore
                 }
                 #if os(tvOS) || os(macOS)
                 .task { BilibiliCastController.shared.start(store) }
-                .onChange(of: store.extrasUnlocked) { _, unlocked in if unlocked { BilibiliCastController.shared.start(store) } }
+                .onChange(of: store.extrasUnlocked) { unlocked in if unlocked { BilibiliCastController.shared.start(store) } }
                 #endif
                 #if os(tvOS) || os(macOS)
                 .task { PlayOnController.shared.start(store) }
@@ -79,7 +79,7 @@ import TVCore
                     else if let link = SubscriptionImportLink(url) { subscriptionLink = link }
                     else if let link = LivePluginSourceLink(url), store.extrasUnlocked { pluginSourceLink = link }
                 }
-                .sheet(item: $pluginSourceLink) { link in LivePluginSourceSheet(link: link).environment(store) }
+                .sheet(item: $pluginSourceLink) { link in LivePluginSourceSheet(link: link).environmentObject(store) }
                 .sheet(item: $douyinHandoff) { DouyinHandoffView(link: $0) }
                 .sheet(item: $subscriptionLink) { SubscriptionImportView(link: $0) }
                 #elseif os(macOS)
@@ -87,14 +87,14 @@ import TVCore
                     if let link = SubscriptionImportLink(url) { subscriptionLink = link }
                     else if let link = LivePluginSourceLink(url), store.extrasUnlocked { pluginSourceLink = link }
                 }
-                .sheet(item: $pluginSourceLink) { link in LivePluginSourceSheet(link: link).environment(store) }
+                .sheet(item: $pluginSourceLink) { link in LivePluginSourceSheet(link: link).environmentObject(store) }
                 .sheet(item: $subscriptionLink) { SubscriptionImportView(link: $0) }
                 // Without this, every link opened a second main window, and the sheet showed in both.
                 .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
                 #endif
                 // A launch that ends while active, without passing through here, crashed or was ended.
-                .onChange(of: scenePhase, initial: true) { _, phase in ErrorReports.shared.onScreen(phase == .active) }
-                .onChange(of: scenePhase) { _, phase in
+                .onChange(of: scenePhase) { phase in ErrorReports.shared.onScreen(phase == .active) }
+                .onChange(of: scenePhase) { phase in
                     if phase == .background {
                         Task { _ = await Diagnostics.shared.snapshot(); ErrorReports.shared.save() }
                         store.cloudSync?.flushPending()
@@ -129,7 +129,7 @@ import TVCore
                 #endif
                 // Outside every modifier above, so the import and Douyin sheets get them too: on RootView alone, a
                 // yingxia://import link stopped the app ("No Observable object of type Store found", TestFlight 49-51).
-                .environment(store).environment(updates).environment(announcements)
+                .environmentObject(store).environmentObject(updates).environmentObject(announcements)
         }
         #if os(macOS)
         .defaultSize(width: 1240, height: 820)
@@ -145,7 +145,7 @@ import TVCore
         #if os(macOS)
         // The music mini player, floating over other apps at the bottom right; also in the Window menu.
         Window(L10n.text("Mini Player"), id: MusicMacMiniPlayer.windowID) {
-            MusicMacMiniPlayer().environment(store).tint(Brand.accent)
+            MusicMacMiniPlayer().environmentObject(store).tint(Brand.accent)
         }
         .windowStyle(.plain)
         .windowLevel(.floating)
@@ -192,7 +192,7 @@ struct LivePluginSourceSheet: View {
 
 struct SubscriptionImportView: View {
     let link: SubscriptionImportLink
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     @State private var adding = false
     @State private var failure: String?

@@ -1,41 +1,41 @@
 import Foundation
-import Observation
+import Combine
 
-@MainActor @Observable public final class SearchModel {
-    public var draft = ""
-    public var selectedSource: String?
-    public var results: [SearchSourceResult] = []
-    public private(set) var activeSources: [SearchSourceActivity] = []
-    public var busy = false
-    public var completed = 0
-    public var total = 0
-    public var keyword = ""
-    public var stopped = false
+@MainActor public final class SearchModel: ObservableObject {
+    @Published public var draft = ""
+    @Published public var selectedSource: String?
+    @Published public var results: [SearchSourceResult] = []
+    @Published public private(set) var activeSources: [SearchSourceActivity] = []
+    @Published public var busy = false
+    @Published public var completed = 0
+    @Published public var total = 0
+    @Published public var keyword = ""
+    @Published public var stopped = false
     /// Sources this search left out because they are failing (`SourceHealth.paused`); a retry asks them.
-    public private(set) var paused: [Site] = []
+    @Published public private(set) var paused: [Site] = []
     /// Keys of the sources this search asks: searchable, not hidden by the viewer, not paused.
-    public private(set) var asking: Set<String> = []
+    @Published public private(set) var asking: Set<String> = []
     /// Paused because the viewer left the results, not by Stop; `resumeSuspended` continues it.
-    public private(set) var suspended = false
+    @Published public private(set) var suspended = false
     /// The result at the top of the page, kept so a page built again opens where the viewer left it. SwiftUI
     /// writes it on every row scrolled past; observed, each write ran the whole search page again (TitleMatch over
     /// every result, the source chips) and scrolling a long list stuttered (#910). Nothing has to redraw when it changes.
-    @ObservationIgnored public var scrollID: String?
+    public var scrollID: String?
     /// Later result pages, in the order they arrived, so the grid only ever grows at its end.
-    public private(set) var batches: [SearchBatch] = []
-    public private(set) var loadingMore = false
+    @Published public private(set) var batches: [SearchBatch] = []
+    @Published public private(set) var loadingMore = false
     /// The next page to ask each source for; `Int.max` once a source has no more.
     private var nextPage: [String: Int] = [:]
-    private(set) var moreTask: Task<Void, Never>?
+    @Published private(set) var moreTask: Task<Void, Never>?
     private var pageGeneration = UUID()
     private var resultsVisible = true
     /// Changes only with a new search, unlike `generation`, which pausing also changes.
     private var runID = UUID()
     private static let sourceKey = "searchSource"
     /// When the current run began and how many sources were already done, for a time estimate.
-    public private(set) var runStart: (date: Date, completed: Int)?
+    @Published public private(set) var runStart: (date: Date, completed: Int)?
     private var generation = UUID()
-    private(set) var task: Task<Void, Never>?
+    @Published private(set) var task: Task<Void, Never>?
 
     private let http: HTTPClient
     private struct Cached {
@@ -49,7 +49,7 @@ import Observation
     private var rank: [String: Int] = [:]
     private var excluded: @MainActor (Site) -> Bool = { _ in false }
     /// The viewer's source order; while it is on, it replaces `SourceStrategy`'s.
-    public var order: SourceOrder?
+    @Published public var order: SourceOrder?
     public init(http: HTTPClient = HTTPClient()) { self.http = http }
 
     public var failures: [SearchSourceResult] { results.filter { $0.error != nil } }
@@ -270,4 +270,3 @@ import Observation
         results.append(result)
     }
 }
-

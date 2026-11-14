@@ -3,7 +3,7 @@ import SwiftUI
 import TVCore
 
 struct SitesView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     /// Choosing a source for something else (Watch Now's recommendations): only `pickable` sources are listed, the
     /// `picked` one is checked, and Select hands the source back and returns instead of opening it.
@@ -12,6 +12,7 @@ struct SitesView: View {
     var picked: String? = nil
     @FocusState private var focusedSite: String?
     @State private var query = ""
+    @State private var previousQuery = ""
     /// Groups the viewer folded. Every group starts open, subscriptions and hidden sources included,
     /// so nothing on the page needs finding, and stays as the viewer left it: a fold is saved and comes
     /// back on the next visit and launch (#517). Picking a source always starts open, so the current
@@ -117,10 +118,12 @@ struct SitesView: View {
                 prepared = true
             }
         }
-        .onChange(of: store.section) { _, new in
+        .onChange(of: store.section) { new in
             if new != .sites { prepared = false }
         }
-        .onChange(of: query) { old, new in
+        .onChange(of: query) { new in
+            let old = previousQuery
+            previousQuery = new
             if old.isEmpty && !new.isEmpty {
                 foldBeforeSearch = collapsed
                 collapsed = []
@@ -256,7 +259,7 @@ struct SourceHealthDot: View {
 /// ("不卡", "秒播") and engine a quiet second line, so a page of sources reads like a launcher
 /// rather than a wall of identical badges. Use with `tileButton()`: on tvOS the card lights up itself.
 struct SiteCard: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.isFocused) private var isFocused
     let site: Site
     /// A source the viewer hid, shown only while hidden sources are revealed.
@@ -385,7 +388,7 @@ struct MonogramIcon: View {
 }
 
 struct PinSourceButton: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let site: Site
     let origin: URL
     var body: some View {
@@ -397,7 +400,7 @@ struct PinSourceButton: View {
 }
 
 struct HideSourceButton: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let site: Site
     let origin: URL
     var body: some View {
@@ -411,7 +414,7 @@ struct HideSourceButton: View {
 /// Over a hidden source's own page: it says so, and Unhide Source brings it back. Hiding is a single tap in the page's
 /// toolbar or a source's menu, so a mistaken one is undone where it happened rather than on another page (#704).
 struct HiddenSourceBanner: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.horizontalSizeClass) private var sizeClass
     let site: Site
     let origin: URL
@@ -450,7 +453,7 @@ struct HiddenSourceBanner: View {
 
 /// Context-menu moves within the viewer's own source order.
 struct MoveSourceButtons: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let site: Site
     let sites: [Site]
     var body: some View {
@@ -468,7 +471,7 @@ struct MoveSourceButtons: View {
 /// The Sources page's header: the switch for the viewer's own order (`SourceOrder`), the top of
 /// that order at a glance, and the way into arranging it.
 struct SourceOrderCard: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let sites: [Site]
     let arrange: () -> Void
     private var enabled: Binding<Bool> {
@@ -574,7 +577,7 @@ struct SourceRankBadge: View {
 
 /// One source in the order editor: its place, icon, name and health.
 private struct SourceOrderRow: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let site: Site
     let rank: Int
     #if os(tvOS)
@@ -613,7 +616,7 @@ private struct SourceOrderRow: View {
 /// The viewer's source order as a list to drag into place. tvOS has no dragging: there, choose a
 /// source, then where it goes; each move is saved at once.
 struct SourceOrderEditor: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     @State private var sites: [Site]
     /// What Reset goes back to.
@@ -765,7 +768,7 @@ struct HideSourcesCard: View {
 /// Hiding or showing many sources at once: a ticked source is shown; Show All and Hide All take a whole group.
 /// Sources stay in their own group here, hidden or not, and each change is saved at once.
 struct HiddenSourcesEditor: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
 
     private func isHidden(_ site: Site) -> Bool {
@@ -913,7 +916,7 @@ struct HiddenSourcesEditor: View {
 /// One source in `HiddenSourcesEditor`: a tick while it is shown, its icon and name, and the health dot the
 /// source cards show, so the ones that stopped working stand out.
 private struct HiddenSourceRow: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let site: Site
     let shown: Bool
     var body: some View {
@@ -936,7 +939,7 @@ private struct HiddenSourceRow: View {
 #endif
 
 struct SiteView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     let site: Site
     let origin: URL
@@ -1082,7 +1085,7 @@ struct SiteView: View {
                     PinSourceButton(site: site, origin: origin)
                     HideSourceButton(site: site, origin: origin)
                 }
-                .environment(store)
+                .environmentObject(store)
             }
         }
         .screenBackdrop()
@@ -1233,7 +1236,7 @@ struct CategoryFilterBar: View {
                 }
             }.padding(.vertical, 16)
         }
-        .scrollIndicators(.hidden).scrollClipDisabled().focusSection()
+        .scrollIndicators(.hidden).focusSection()
         .accessibilityIdentifier("site.filters")
         #else
         ScrollView(.horizontal) {
@@ -1250,7 +1253,7 @@ struct CategoryFilterBar: View {
                 }
             }
         }
-        .scrollIndicators(.hidden).scrollClipDisabled().frame(height: 38)
+        .scrollIndicators(.hidden).frame(height: 38)
         .tint(.primary)
         .accessibilityIdentifier("site.filters")
         #endif
@@ -1867,7 +1870,7 @@ private typealias PlatformImage = UIImage
 struct VideoDetailView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.dismiss) private var dismiss
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     let video: Video
     let client: CatalogClient
     /// Opened from Continue Watching: on an iPhone the page resumes it at once.
@@ -1879,6 +1882,7 @@ struct VideoDetailView: View {
     @State private var turnedFullScreen = false
     @State private var showsAllEpisodes = false
     @State private var episodeScroll: Episode.ID?
+    @State private var previousWatchScopes: Set<String> = []
     /// The page's player shows its picture (or an error); until then the page's cover stays over it.
     @State private var playerStarted = false
     /// The page's player, whose wait the cover tells about.
@@ -2002,7 +2006,7 @@ struct VideoDetailView: View {
         }
         .onDisappear { requestTask?.cancel() }
         .task(id: detail?.id) { await startTMDB() }
-        .onChange(of: choosingQuality) { _, open in if !open && !busy { loadingEpisode = nil } }
+        .onChange(of: choosingQuality) { open in if !open && !busy { loadingEpisode = nil } }
         #if os(iOS)
         .sheet(isPresented: $showsConfigCenter) { ConfigCenterView { await configCenterAddress() } }
         #endif
@@ -2655,7 +2659,7 @@ struct VideoDetailView: View {
     private func episodeOrderButton(count: Int) -> some View {
         Button { reversesEpisodes.toggle() } label: {
             HStack(spacing: 10) {
-                Image(systemName: reversesEpisodes ? "arrow.down" : "arrow.up").contentTransition(.symbolEffect(.replace))
+                Image(systemName: reversesEpisodes ? "arrow.down" : "arrow.up")
                 Text(L10n.text("Episodes"))
                 Text("\(count)").monospacedDigit().foregroundStyle(.secondary)
             }
@@ -2911,7 +2915,9 @@ struct VideoDetailView: View {
             PlayerOrientation.holdPortrait(true)
             UIDevice.current.beginGeneratingDeviceOrientationNotifications()
         }
-        .onChange(of: watchScopes) { old, new in
+        .onChange(of: watchScopes) { new in
+            let old = previousWatchScopes
+            previousWatchScopes = new
             store.watchPageScopes.subtract(old.subtracting(new)); store.watchPageScopes.formUnion(new)
         }
         .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
@@ -2926,7 +2932,7 @@ struct VideoDetailView: View {
             turnedFullScreen = false
             PlayerOrientation.holdPortrait(false)
         }
-        .onChange(of: watchChannel == nil) { _, ended in
+        .onChange(of: watchChannel == nil) { ended in
             playerStarted = false
             if ended { playerSession = nil }
             if ended && fullScreen { setFullScreen(landscape: false) }
@@ -3081,7 +3087,7 @@ struct VideoDetailView: View {
     /// even `.top`, made the page follow its growing content down.
     private struct QAScrollToFoot: ViewModifier {
         func body(content: Content) -> some View {
-            if UserDefaults.standard.string(forKey: "qaScrollAnchor") == "bottom" { content.defaultScrollAnchor(.bottom) } else { content }
+            if UserDefaults.standard.string(forKey: "qaScrollAnchor") == "bottom", #available(iOS 17, *) { content.defaultScrollAnchor(.bottom) } else { content }
         }
     }
     #endif
@@ -3170,16 +3176,16 @@ struct VideoDetailView: View {
                         // scroll view, which pushed the title under the player.
                         ScrollView(.horizontal) {
                             LazyHStack(alignment: .top, spacing: stills.isEmpty ? 8 : 12) { ForEach(shownOrder(items)) { watchEpisodeCard($0, tile: tile, info: stills[$0.id]) } }
-                                .scrollTargetLayout()
+                                
                                 .padding(.horizontal, 16)
                         }
                         .scrollIndicators(.never)
-                        .scrollPosition(id: $episodeScroll, anchor: .center)
+                        
                         // Edge to edge, unclipped: the tiles' glass shadow ran past the row and was cut off in a band (#293).
-                        .scrollClipDisabled()
+                        
                         .padding(.horizontal, -16)
                         .onAppear { episodeScroll = currentEpisodeID }
-                        .onChange(of: currentEpisodeID) { _, id in if let id { withAnimation { episodeScroll = id } } }
+                        .onChange(of: currentEpisodeID) { id in if let id { withAnimation { episodeScroll = id } } }
                     }
                 }
             }
@@ -3197,7 +3203,7 @@ struct VideoDetailView: View {
                 if let same, same.id != currentEpisodeID { startRequest { await play(same) } }
             }
             // Edge to edge and unclipped, like the episodes, so the strip doesn't cut the chips' glass shadow (#293).
-            .contentMargins(.horizontal, 16, for: .scrollContent).scrollClipDisabled()
+            
             .padding(.horizontal, -16)
         }
     }
@@ -3602,7 +3608,7 @@ extension VideoDetailView {
                 }
                 .padding(.bottom, 90)
             }
-            .scrollClipDisabled()
+            
             .modifier(DiscoverTVScrolled(scrolled: $tvScrolled))
             .background {
                 if let backdrop = tmdb.details?.backdrop {
@@ -3616,7 +3622,7 @@ extension VideoDetailView {
             .animation(.smooth(duration: 0.45), value: tmdb.details)
             .animation(.smooth(duration: 0.3), value: tmdb.phase)
             // Coming back up from the rows, the hero comes back whole, not just as far as the focused button.
-            .onChange(of: playFocused || tvHeroFocus != nil) { _, inHero in
+            .onChange(of: playFocused || tvHeroFocus != nil) { inHero in
                 if inHero { withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo("hero", anchor: .top) } }
             }
             .fullScreenCover(isPresented: $showsTVSynopsis) { tvSynopsisScreen }

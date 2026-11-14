@@ -9,7 +9,7 @@ struct PlayerEpisodesButton<Label: View>: View {
     let channel: Channel
     @Binding var isPresented: Bool
     @ViewBuilder let label: () -> Label
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
 
     var body: some View {
         if PlayerEpisodesSheet.offered(for: channel, in: store) {
@@ -34,7 +34,7 @@ extension View {
 /// Half the screen on a phone, so the picture stays in view; the episode playing is marked and scrolled to.
 struct PlayerEpisodesSheet: View {
     let channel: Channel
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     @State private var tmdb = TMDBLookup()
     @State private var selectedFlag: String?
@@ -82,7 +82,7 @@ struct PlayerEpisodesSheet: View {
         .frame(minWidth: 620, idealWidth: 720, minHeight: 460, idealHeight: 560)
         #endif
         // The chosen episode is playing: the sheet has done its job.
-        .onChange(of: store.playing) { _, _ in if picked { dismiss() } }
+        .onChange(of: store.playing) { _ in if picked { dismiss() } }
         .task(id: store.catalog(for: playing)?.video.id) { await lookUp() }
     }
 
@@ -106,7 +106,7 @@ struct PlayerEpisodesSheet: View {
                         SourceStrip(items: flags.map { .init(id: $0, name: $0.isEmpty ? L10n.text("Play") : $0) }, selection: flag) {
                             selectedFlag = $0
                         }
-                        .contentMargins(.horizontal, 16, for: .scrollContent).scrollClipDisabled()
+                        
                         .padding(.horizontal, -16)
                     }
                     if let error = store.episodeError {
@@ -120,7 +120,7 @@ struct PlayerEpisodesSheet: View {
             }
             .onAppear { if let id = current?.id { proxy.scrollTo(id, anchor: .center) } }
             // The layout changed under the episode playing (TMDB had nothing to show): back to it.
-            .onChange(of: tiles) { _, _ in if let id = current?.id { proxy.scrollTo(id, anchor: .center) } }
+            .onChange(of: tiles) { _ in if let id = current?.id { proxy.scrollTo(id, anchor: .center) } }
         }
     }
 

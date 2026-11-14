@@ -11,7 +11,7 @@ import TVCore
 /// two copies cross-faded instead, so the cover went see-through in flight.
 struct MusicNowPlayingScreen: View {
     enum Panel: Hashable { case lyrics, queue }
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     @State private var panel: Panel?
     @State private var tint = Color(white: 0.24)
@@ -51,7 +51,7 @@ struct MusicNowPlayingScreen: View {
         .background { sheetBackdrop.ignoresSafeArea() }
         .environment(\.colorScheme, .dark)
         .presentationDragIndicator(.visible)
-        .presentationBackground { if Self.shapesOwnSheet { Color.clear } else { backdrop } }
+        
         .presentationCornerRadius(Self.shapesOwnSheet ? 0 : nil)
         .task(id: music.track?.artwork) {
             guard let url = music.track?.artwork, let color = await PosterPalette.average(url) else { return }
@@ -61,7 +61,7 @@ struct MusicNowPlayingScreen: View {
                 _ = await PosterPalette.image(next)
             }
         }
-        .onChange(of: music.track == nil) { _, gone in if gone { dismiss() } }
+        .onChange(of: music.track == nil) { gone in if gone { dismiss() } }
         #if DEBUG
         .onAppear {
             switch UserDefaults.standard.string(forKey: "qaNowPlaying") {
@@ -176,7 +176,7 @@ struct MusicNowPlayingScreen: View {
                     ProgressView().appControlSize(.large).frame(width: 72, height: 72)
                 } else {
                     control(music.isPlaying ? "pause.fill" : "play.fill", size: 44, label: music.isPlaying ? "Pause" : "Play") { music.toggle() }
-                        .contentTransition(.symbolEffect(.replace))
+                        
                 }
             }
             Spacer()

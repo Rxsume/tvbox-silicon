@@ -16,7 +16,7 @@ private struct SearchPoster: Identifiable {
 }
 
 struct GlobalSearchView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @FocusState private var inputFocused: Bool
     @State private var showFailures = false
     /// The sources being searched right now, under the summary; folded away unless asked for.
@@ -81,7 +81,6 @@ struct GlobalSearchView: View {
     }
 
     var body: some View {
-        @Bindable var model = model
         #if os(tvOS)
         searchResults
             // A field beside the sidebar button rather than the system keyboard across the top of the page, so the
@@ -99,7 +98,7 @@ struct GlobalSearchView: View {
             #endif
         #else
         searchResults
-            .scrollPosition(id: $model.scrollID)
+            
             // A hard edge: the summary, the activity and the source chips are a tall bar, and results showed through it.
             .topBar(hardEdge: true) { if let config = store.subscription, showsHeader { searchHeader(config) } }
             .screenBackdrop()
@@ -109,10 +108,10 @@ struct GlobalSearchView: View {
             #endif
             // The system search field, as on Sources and Live TV: under the title on iPhone and iPad, in the toolbar on
             // the Mac. Only Return or the keyboard's Search key searches; clearing the field goes back to the recent searches.
-            .catalogSearchable(text: $model.draft, prompt: L10n.text("Search videos"))
+            .catalogSearchable(text: model.$draft, prompt: L10n.text("Search videos"))
             .searchFieldFocused($inputFocused)
             .onSubmit(of: .search) { if let config = store.subscription { submit(config) } }
-            .onChange(of: model.draft) { _, draft in if draft.isEmpty && !model.keyword.isEmpty { model.reset() } }
+            .onChange(of: model.draft) { draft in if draft.isEmpty && !model.keyword.isEmpty { model.reset() } }
             #if os(iOS)
             .scrollDismissesKeyboard(.interactively)
             #endif
@@ -181,7 +180,7 @@ struct GlobalSearchView: View {
                             LazyVGrid(columns: listed ? Self.rowColumns : Layout.posterColumns,
                                       spacing: listed ? Layout.gridSpacing : Layout.gridRowSpacing) {
                                 resultLinks(listing.posters, config)
-                            }.scrollTargetLayout()
+                            }
                             // A single row of results leaves nothing under the right of the rows above; as a section the
                             // remote still moves Down onto it (#481).
                             .tvFocusSection()
@@ -200,7 +199,7 @@ struct GlobalSearchView: View {
                                         endVisible = visible
                                         if visible { model.loadMore(model.selectedSource, config: config) }
                                     }
-                                    .onChange(of: model.loadingMore) { _, loading in
+                                    .onChange(of: model.loadingMore) { loading in
                                         if !loading, endVisible { model.loadMore(model.selectedSource, config: config) }
                                     }
                             }
@@ -254,7 +253,6 @@ struct GlobalSearchView: View {
     /// The system search keyboard, full screen: past searches and suggested titles under it, then the button that
     /// runs the search and closes it. Back closes it without searching.
     private var searchEntry: some View {
-        @Bindable var model = model
         return NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
@@ -269,7 +267,7 @@ struct GlobalSearchView: View {
                     idle.frame(maxWidth: 760, alignment: .leading).frame(maxWidth: .infinity)
                 }.pageContainer()
             }
-            .searchable(text: $model.draft, prompt: Text(L10n.text("Search videos")))
+            .searchable(text: model.$draft, prompt: Text(L10n.text("Search videos")))
             .searchSuggestions {
                 // Past searches first, then titles for what is typed: a remote spells "xyj" and picks 西游记, as on
                 // FongMi's TV search. A completion only fills the field; the Search button below still starts the search.
@@ -286,7 +284,6 @@ struct GlobalSearchView: View {
     #endif
 
     private func searchHeader(_ config: Subscription) -> some View {
-        @Bindable var model = model
         let sourceItems = sourceItems
         return VStack(alignment: .leading, spacing: 14) {
             if !model.keyword.isEmpty {
@@ -391,7 +388,7 @@ struct GlobalSearchView: View {
         Button { withAnimation(.smooth(duration: 0.35)) { showsList.toggle() } } label: {
             Image(systemName: showsList ? "square.grid.2x2" : "list.bullet")
                 .font(.footnote.weight(.semibold))
-                .contentTransition(.symbolEffect(.replace))
+                
                 .frame(minWidth: 16)
         }
         .searchAction()
@@ -808,7 +805,7 @@ private func uniqueVideos(_ videos: [Video]) -> [Video] {
 }
 
 struct RecommendationsView: View {
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @Environment(\.openRoute) private var openRoute
     let config: Subscription
     var fixedSite: Site? = nil
@@ -1358,7 +1355,7 @@ struct SourceStrip: View {
                 }
             }
             .padding(.vertical, 4)
-            .scrollTargetLayout()
+            
         }
     }
 }

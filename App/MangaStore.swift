@@ -2,22 +2,22 @@ import SwiftUI
 import TVCore
 
 /// The Manga section's state: installed Venera sources, the shelf (favorites, reading history) and reader settings.
-@MainActor @Observable final class MangaStore {
+@MainActor final class MangaStore: ObservableObject {
     static let shared = MangaStore()
 
-    private(set) var sources: [MangaInstalledSource] = MangaSources.shared.installed
-    private(set) var repositories: [URL] = MangaSources.shared.repositories
-    private(set) var favorites: [MangaLibrary.Favorite] = MangaLibrary.load("favorites.json", as: [MangaLibrary.Favorite].self) ?? []
-    private(set) var history: [MangaLibrary.Progress] = MangaLibrary.load("history.json", as: [MangaLibrary.Progress].self) ?? []
+    @Published private(set) var sources: [MangaInstalledSource] = MangaSources.shared.installed
+    @Published private(set) var repositories: [URL] = MangaSources.shared.repositories
+    @Published private(set) var favorites: [MangaLibrary.Favorite] = MangaLibrary.load("favorites.json", as: [MangaLibrary.Favorite].self) ?? []
+    @Published private(set) var history: [MangaLibrary.Progress] = MangaLibrary.load("history.json", as: [MangaLibrary.Progress].self) ?? []
     /// Shown on the page that started it: a message from a source (UI.showMessage).
-    var notice: String?
+    @Published var notice: String?
     /// Until when a site makes requests wait (拷贝漫画's "too many requests").
-    var throttledUntil: Date?
+    @Published var throttledUntil: Date?
     /// The source the Browse page shows.
-    var selectedSource: String? {
+    @Published var selectedSource: String? {
         didSet { UserDefaults.standard.set(selectedSource, forKey: "manga.source") }
     }
-    var readerMode: MangaReaderMode {
+    @Published var readerMode: MangaReaderMode {
         didSet { UserDefaults.standard.set(readerMode.rawValue, forKey: "manga.readerMode") }
     }
     /// Comics whose reading direction differs from the default, by comic.
@@ -284,7 +284,7 @@ struct MangaShelfRow: View {
             .padding(.vertical, 24)
             #endif
         }
-        .scrollClipDisabled()
+        
     }
 }
 

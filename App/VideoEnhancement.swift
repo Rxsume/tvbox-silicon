@@ -73,26 +73,26 @@ private protocol EnhancementEngine: AnyObject, Sendable {
 }
 
 /// One per playback session: follows the player's item and owns the layer the surfaces show.
-@MainActor @Observable final class VideoEnhancer {
+@MainActor final class VideoEnhancer: ObservableObject {
     /// What is on screen now: processed frames drawn over AVKit's picture.
-    private(set) var status = VideoEnhancementStatus()
+    @Published private(set) var status = VideoEnhancementStatus()
     /// A line for logs and QA: the processors running, frame counts and timing.
-    private(set) var summary = "off"
-    @ObservationIgnored let layer = AVSampleBufferDisplayLayer()
-    @ObservationIgnored private weak var player: AVPlayer?
-    @ObservationIgnored private var engine: (any EnhancementEngine)?
-    @ObservationIgnored private var item: AVPlayerItem?
-    @ObservationIgnored private var output: AVPlayerItemVideoOutput?
-    @ObservationIgnored private var itemObservation: NSKeyValueObservation?
-    @ObservationIgnored private var jumpObserver: NSObjectProtocol?
-    @ObservationIgnored private var options = VideoEnhancementOptions()
-    @ObservationIgnored private var displaySize = CGSize.zero
+    @Published private(set) var summary = "off"
+    let layer = AVSampleBufferDisplayLayer()
+    private weak var player: AVPlayer?
+    private var engine: (any EnhancementEngine)?
+    private var item: AVPlayerItem?
+    private var output: AVPlayerItemVideoOutput?
+    private var itemObservation: NSKeyValueObservation?
+    private var jumpObserver: NSObjectProtocol?
+    private var options = VideoEnhancementOptions()
+    private var displaySize = CGSize.zero
     /// The frames' format, for asking the TV for a display mode.
-    @ObservationIgnored private var format: CMFormatDescription?
-    @ObservationIgnored private var announced: String?
-    @ObservationIgnored private var displayState = ""
+    private var format: CMFormatDescription?
+    private var announced: String?
+    private var displayState = ""
     /// Called when what the screen should do changes: smoothing, its rate, or the first known format.
-    @ObservationIgnored var onDisplayChange: (() -> Void)?
+    var onDisplayChange: (() -> Void)?
 
     /// Smoothed frames need the screen at `rate`; nil when the screen should follow the video as usual.
     var displayRequest: (rate: Double, format: CMFormatDescription)? {

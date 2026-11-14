@@ -135,11 +135,11 @@ struct SubtitleSourcePage: View {
                 values = await SubtitleSourceLibrary.shared.values(for: item.id)
                 loaded = true
             }
-            .onChange(of: enabled) { _, on in
+            .onChange(of: enabled) { on in
                 guard loaded else { return }
                 Task { await SubtitleSourceLibrary.shared.setEnabled(item.id, on) }
             }
-            .onChange(of: values) { _, new in
+            .onChange(of: values) { new in
                 guard loaded else { return }
                 SubtitleSourceKeys.values[item.id] = new
                 Task { await SubtitleSourceLibrary.shared.setValues(new, for: item.id) }

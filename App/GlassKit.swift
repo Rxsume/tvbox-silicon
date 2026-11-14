@@ -195,8 +195,10 @@ extension View {
     @ViewBuilder func breathingSymbol() -> some View {
         if #available(iOS 18, tvOS 18, *) {
             symbolEffect(.breathe, options: .repeat(.periodic(delay: 2.5)))
-        } else {
+        } else if #available(iOS 17, tvOS 17, *) {
             symbolEffect(.pulse, options: .repeating.speed(0.4))
+        } else {
+            self
         }
     }
 }
@@ -708,7 +710,7 @@ struct ChipRow<Content: View>: View {
     var body: some View {
         #if os(tvOS)
         // Unclipped so a focused chip's lift and glow aren't cut at the row's ends.
-        ScrollView(.horizontal, showsIndicators: false) { content.padding(.vertical, 8) }.scrollClipDisabled()
+        ScrollView(.horizontal, showsIndicators: false) { content.padding(.vertical, 8) }
         #else
         // Room inside the strip's clip for the glass chips' edges and hover growth, given back
         // outside so the first chip still lines up with the page.

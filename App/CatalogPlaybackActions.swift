@@ -7,7 +7,7 @@ import TVCore
 struct CatalogPlaybackActions: View {
     let channel: Channel
     let session: PlaybackSession
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var showsSkip = false
 
     var body: some View {
