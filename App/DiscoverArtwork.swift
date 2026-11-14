@@ -123,6 +123,14 @@ struct DiscoverBackdrop: View {
         let travel = max(0, scrollY)
         let fade: CGFloat = heroHeight > 0 ? max(0, 1 - travel / heroHeight) : 0
         #if os(tvOS)
+        return AnyView(tvBackdrop(travel: travel, fade: fade))
+        #else
+        return AnyView(phoneBackdrop)
+        #endif
+    }
+
+    #if os(tvOS)
+    private func tvBackdrop(travel: CGFloat, fade: CGFloat) -> some View {
         ZStack(alignment: .top) {
             Color(red: 0.018, green: 0.028, blue: 0.035)
             ZStack {
@@ -140,7 +148,9 @@ struct DiscoverBackdrop: View {
             .offset(y: -travel * 0.6)
             .opacity(fade)
         }.ignoresSafeArea().accessibilityHidden(true).allowsHitTesting(false)
-        #else
+    }
+    #else
+    private var phoneBackdrop: some View {
         ZStack(alignment: .top) {
             (paint?.color ?? Color(white: 0.06))
             if let paint {
@@ -178,6 +188,6 @@ struct DiscoverBackdrop: View {
         .accessibilityHidden(true)
         .onChange(of: trailer?.key) { _ in videoReady = false }
         .onChange(of: playsTrailer) { plays in if !plays { videoReady = false } }
-        #endif
     }
+    #endif
 }
