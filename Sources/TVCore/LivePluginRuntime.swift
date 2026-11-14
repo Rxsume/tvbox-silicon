@@ -445,11 +445,18 @@ final class LoadedLivePlugin: @unchecked Sendable {
         let innerSeconds = inner["timeout"]?.double
         let outerMilliseconds = outer["timeoutMs"]?.double
         let outerSeconds = outer["timeout"]?.double
-        let seconds = innerMilliseconds.map { $0 / 1000 }
-            ?? innerSeconds
-            ?? outerMilliseconds.map { $0 / 1000 }
-            ?? outerSeconds
-            ?? 20.0
+        let seconds: Double
+        if let milliseconds = innerMilliseconds {
+            seconds = milliseconds / 1000.0
+        } else if let timeout = innerSeconds {
+            seconds = timeout
+        } else if let milliseconds = outerMilliseconds {
+            seconds = milliseconds / 1000.0
+        } else if let timeout = outerSeconds {
+            seconds = timeout
+        } else {
+            seconds = 20.0
+        }
         request.timeoutInterval = min(120.0, max(0.1, seconds))
         var headers: [String: String] = [:]
         for (key, value) in options["headers"]?.object ?? [:] { if let text = value.string ?? value.double.map({ String(format: "%g", $0) }) { headers[key] = text } }
