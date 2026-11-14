@@ -201,9 +201,7 @@ struct PlaybackWaitView: View {
                 if let wait {
                     HStack(spacing: 10) {
                         ProgressView().appControlSize(.small).tint(.white)
-                        // A new message replaces the old with a soft blur rather than two lines crossing.
-                        line(wait, inline: layout.inlineCaption).lineLimit(1)
-                            .id("\(wait.message)|\(wait.caption ?? "")|\(wait.suggestsLines)").transition(.blurReplace)
+                        message(wait, inline: layout.inlineCaption)
                     }
                     .font(Self.pillFont)
                     .foregroundStyle(.white)
@@ -235,9 +233,20 @@ struct PlaybackWaitView: View {
         }
     }
 
+    /// Blur replacement on newer systems; the same message fades on iOS 16.
+    @ViewBuilder private func message(_ wait: PlaybackWait, inline: Bool) -> some View {
+        let text = line(wait, inline: inline).lineLimit(1)
+            .id("\(wait.message)|\(wait.caption ?? "")|\(wait.suggestsLines)")
+        if #available(iOS 17, tvOS 17, macOS 14, *) {
+            text.transition(.blurReplace)
+        } else {
+            text.transition(.opacity)
+        }
+    }
+
     private func line(_ wait: PlaybackWait, inline: Bool) -> Text {
         guard inline, let caption = caption(wait) else { return Text(wait.message) }
-        return Text(wait.message) + Text("   ") + caption.font(Self.captionFont).foregroundStyle(.white.opacity(0.62))
+        return Text(wait.message) + Text("   ") + caption.font(Self.captionFont).foregroundColor(.white.opacity(0.62))
     }
 
     /// The second line: a note on a switch the player made, or the way to another line, shown with the button's symbol.

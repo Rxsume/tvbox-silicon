@@ -1441,7 +1441,10 @@ extension PlaybackSession {
     /// Whether the screen is mirrored or recorded right now (`Remux.screenCaptured`).
     static var screenCaptured: Bool {
         #if canImport(UIKit)
-        UIApplication.shared.connectedScenes.contains { ($0 as? UIWindowScene)?.traitCollection.sceneCaptureState == .active }
+        if #available(iOS 17, tvOS 17, *) {
+            return UIApplication.shared.connectedScenes.contains { ($0 as? UIWindowScene)?.traitCollection.sceneCaptureState == .active }
+        }
+        return UIApplication.shared.connectedScenes.contains { ($0 as? UIWindowScene)?.screen.isCaptured == true }
         #else
         false
         #endif

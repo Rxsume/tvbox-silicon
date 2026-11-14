@@ -125,11 +125,7 @@ struct SubtitlePreview: View {
                         Rectangle().fill(Brand.amber).frame(width: 1.5, height: size.height).offset(x: size.width / 2 - 0.75)
                     }
                 }
-                SubtitleLines(lines: Self.sample, style: shown, letters: size.height * shown.size / 100, oneLine: true)
-                    .contentShape(Rectangle())
-                    #if !os(tvOS)
-                    .gesture(drag(in: size), including: draggable ? .all : .none)
-                    #endif
+                subtitle(shown, in: size)
                     .subtitlePlacement(shown, in: CGRect(origin: .zero, size: size))
             }
             .frame(width: size.width, height: size.height, alignment: .topLeading)
@@ -137,12 +133,19 @@ struct SubtitlePreview: View {
         }
         .aspectRatio(16 / 9, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        #if !os(tvOS)
-        
-        #endif
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(L10n.text("Subtitle Style"))
         .accessibilityValue(style.positionTitle)
+    }
+
+    @ViewBuilder private func subtitle(_ shown: SubtitleStyle, in size: CGSize) -> some View {
+        let lines = SubtitleLines(lines: Self.sample, style: shown, letters: size.height * shown.size / 100, oneLine: true)
+            .contentShape(Rectangle())
+        #if os(tvOS)
+        lines
+        #else
+        lines.gesture(drag(in: size), including: draggable ? .all : .none)
+        #endif
     }
 
     #if !os(tvOS)

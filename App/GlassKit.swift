@@ -31,14 +31,37 @@ private struct IdleEndingSearch: ViewModifier {
     @Binding var text: String
     let prompt: String
     @State private var presented = false
-    func body(content: Content) -> some View {
-        content
-            .searchable(text: $text, isPresented: $presented, placement: .navigationBarDrawer(displayMode: .always), prompt: Text(prompt))
-            .onScrollByHand { endIfIdle() }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in endIfIdle() }
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 17, *) {
+            content
+                .searchable(text: $text, isPresented: $presented, placement: .navigationBarDrawer(displayMode: .always), prompt: Text(prompt))
+                .onScrollByHand { endIfIdle() }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in endIfIdle() }
+        } else {
+            content
+                .modifier(LegacyIdleEndingSearch(text: $text))
+                .searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always), prompt: Text(prompt))
+        }
     }
     private func endIfIdle() {
         if presented && text.isEmpty { presented = false }
+    }
+}
+
+/// Dismiss search from inside its environment; iOS 16 has no isPresented binding for searchable.
+private struct LegacyIdleEndingSearch: ViewModifier {
+    @Environment(\.dismissSearch) private var dismissSearch
+    @Environment(\.isSearching) private var isSearching
+    @Binding var text: String
+
+    func body(content: Content) -> some View {
+        content
+            .onScrollByHand { endIfIdle() }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in endIfIdle() }
+    }
+
+    private func endIfIdle() {
+        if isSearching && text.isEmpty { dismissSearch() }
     }
 }
 #endif
@@ -163,13 +186,25 @@ extension View {
     @ViewBuilder func onScrolledIntoView(threshold: Double, _ action: @escaping (Bool) -> Void) -> some View {
         if #available(iOS 18, tvOS 18, *) {
             onScrollVisibilityChange(threshold: threshold, action)
-        } else {
+        } else if #available(iOS 17, tvOS 17, *) {
             onGeometryChange(for: Bool.self) { geometry in
                 let own = CGRect(origin: .zero, size: geometry.size)
                 guard own.width * own.height > 0, let viewport = geometry.bounds(of: .scrollView) else { return false }
                 let shown = own.intersection(viewport)
                 return !shown.isNull && shown.width * shown.height >= own.width * own.height * threshold
             } action: { action($0) }
+        } else {
+            #if os(iOS)
+            let viewport = UIApplication.shared.appWindowScene?.windows.first(where: \.isKeyWindow)?.bounds ?? UIScreen.main.bounds
+            onGeometryChange(for: Bool.self) { geometry in
+                let own = geometry.frame(in: .global)
+                guard own.width * own.height > 0 else { return false }
+                let shown = own.intersection(viewport)
+                return !shown.isNull && Double(shown.width * shown.height / (own.width * own.height)) >= threshold
+            } action: { action($0) }
+            #else
+            onAppear { action(true) }.onDisappear { action(false) }
+            #endif
         }
     }
 
@@ -207,13 +242,29 @@ extension Color {
     /// `mix(with:by:)`; before iOS 18 and tvOS 18 a plain blend in sRGB.
     func blend(with other: Color, by fraction: Double) -> Color {
         if #available(iOS 18, tvOS 18, *) { return mix(with: other, by: fraction) }
-        let environment = EnvironmentValues()
-        let from = resolve(in: environment), to = other.resolve(in: environment)
-        // Resolved components are linear; blending gamma-encoded values looks closer to mix's perceptual default.
-        func encoded(_ linear: Float) -> Double { Double(pow(max(0, linear), 1 / 2.2)) }
-        func mixed(_ a: Float, _ b: Float) -> Double { encoded(a) + (encoded(b) - encoded(a)) * fraction }
-        return Color(.sRGB, red: mixed(from.red, to.red), green: mixed(from.green, to.green), blue: mixed(from.blue, to.blue),
-                     opacity: Double(from.opacity + (to.opacity - from.opacity) * Float(fraction)))
+        if #available(iOS 17, tvOS 17, *) {
+            let environment = EnvironmentValues()
+            let from = resolve(in: environment), to = other.resolve(in: environment)
+            // Resolved components are linear; blend gamma-encoded values for the perceptual default.
+            func encoded(_ linear: Float) -> Double { Double(pow(max(0, linear), 1 / 2.2)) }
+            func mixed(_ a: Float, _ b: Float) -> Double { encoded(a) + (encoded(b) - encoded(a)) * fraction }
+            return Color(.sRGB, red: mixed(from.red, to.red), green: mixed(from.green, to.green), blue: mixed(from.blue, to.blue),
+                         opacity: Double(from.opacity + (to.opacity - from.opacity) * Float(fraction)))
+        }
+        #if canImport(UIKit)
+        // UIKit resolves dynamic colours against the current traits on iOS 16, including alpha.
+        return Color(uiColor: UIColor { traits in
+            var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+            var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+            UIColor(self).resolvedColor(with: traits).getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+            UIColor(other).resolvedColor(with: traits).getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+            let amount = CGFloat(min(1, max(0, fraction)))
+            return UIColor(red: r1 + (r2 - r1) * amount, green: g1 + (g2 - g1) * amount,
+                           blue: b1 + (b2 - b1) * amount, alpha: a1 + (a2 - a1) * amount)
+        })
+        #else
+        return self
+        #endif
     }
 }
 

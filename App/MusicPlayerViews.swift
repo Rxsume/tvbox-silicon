@@ -484,7 +484,7 @@ private struct MusicSettingsContent: View {
         MusicSheet(title: L10n.text("Music Settings"), symbol: "slider.horizontal.3") {
             Form {
                 Section {
-                    Picker(L10n.text("Audio Quality"), selection: store.music.$preferences.quality) {
+                    Picker(L10n.text("Audio Quality"), selection: $music.preferences.quality) {
                         ForEach(MusicQualityPreference.allCases, id: \.self) { Text($0.name).tag($0) }
                     }
                 } footer: {

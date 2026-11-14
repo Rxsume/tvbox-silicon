@@ -146,7 +146,7 @@ struct DiscoverBackdrop: View {
                     .frame(width: width, height: heroHeight)
                     .scaleEffect(1.2 + max(0, -scrollY) / max(heroHeight, 1), anchor: .center)
                     .offset(y: -scrollY * 0.78)
-                    .opacity(max(0, 1 - max(0, scrollY - heroHeight * 0.45) / (heroHeight * 0.55)))
+                    .opacity(Double(max(0, CGFloat(1) - max(0, scrollY - heroHeight * 0.45) / max(heroHeight * 0.55, 1))))
                     .opacity(videoReady ? 0 : 1)
                     .frame(width: width, height: heroHeight, alignment: .top).clipped()
                     .mask {

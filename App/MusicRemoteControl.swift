@@ -21,9 +21,12 @@ extension Store {
     private var artworkURL: URL?
     private var artwork: MPMediaItemArtwork?
     private var artworkTask: Task<Void, Never>?
+    private var subscription: AnyCancellable?
+    private var lastState: State?
 
     private init(store: Store) {
         self.store = store
+        lastState = state
         update()
         observe()
     }
@@ -36,19 +39,33 @@ extension Store {
         var duration: Double?
         var index: Int?
         var count: Int
-        var seeking: Bool
+        var seeking: Double?
         var video: Bool
     }
 
     private var state: State {
         let music = store.music
         return State(track: music.track?.id, phase: music.phase, duration: music.duration, index: music.queue?.index,
-                     count: music.queue?.tracks.count ?? 0, seeking: music.seekingTo != nil, video: store.playing != nil)
+                     count: music.queue?.tracks.count ?? 0, seeking: music.seekingTo, video: store.playing != nil)
     }
 
     private func observe() {
-        withObservationTracking { _ = state } onChange: { [weak self] in
-            Task { @MainActor [weak self] in self?.update(); self?.observe() }
+        let music = store.music
+        subscription = Publishers.MergeMany([
+            music.$queue.map { _ in () }.eraseToAnyPublisher(),
+            music.$phase.map { _ in () }.eraseToAnyPublisher(),
+            music.$duration.map { _ in () }.eraseToAnyPublisher(),
+            music.$seekingTo.map { _ in () }.eraseToAnyPublisher(),
+            store.$playing.map { _ in () }.eraseToAnyPublisher(),
+        ])
+        // @Published sends before assignment; read the completed state on the next main-loop turn.
+        .receive(on: RunLoop.main)
+        .sink { [weak self] _ in
+            guard let self else { return }
+            let next = self.state
+            guard next != self.lastState else { return }
+            self.lastState = next
+            self.update()
         }
     }
 

@@ -86,12 +86,14 @@ struct MusicView: View {
         }
         #endif
         #if DEBUG
-        .navigationDestination(item: $qaOpened) {
-            #if os(macOS)
-            MusicCollectionView(collection: $0).musicBar()
-            #else
-            MusicCollectionView(collection: $0)
-            #endif
+        .navigationDestination(isPresented: Binding(get: { qaOpened != nil }, set: { if !$0 { qaOpened = nil } })) {
+            if let collection = qaOpened {
+                #if os(macOS)
+                MusicCollectionView(collection: collection).musicBar()
+                #else
+                MusicCollectionView(collection: collection)
+                #endif
+            }
         }
         #endif
         .musicPlayerInset()

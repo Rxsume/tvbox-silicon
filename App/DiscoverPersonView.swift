@@ -139,11 +139,17 @@ struct DiscoverPersonView: View {
         #endif
         .frame(maxWidth: .infinity)
         .background(alignment: .top) {
-            DiscoverPosterWall(urls: wallPosters, color: color)
-                .frame(height: min(width * 0.88, 430) + 270)
-                .visualEffect { view, proxy in
-                    view.offset(y: min(0, -proxy.frame(in: .scrollView).minY * 0.16))
-                }
+            if #available(iOS 17, tvOS 17, *) {
+                DiscoverPosterWall(urls: wallPosters, color: color)
+                    .frame(height: min(width * 0.88, 430) + 270)
+                    .visualEffect { view, proxy in
+                        view.offset(y: min(0, -proxy.frame(in: .scrollView).minY * 0.16))
+                    }
+            } else {
+                // iOS 16 keeps the same artwork without the decorative parallax.
+                DiscoverPosterWall(urls: wallPosters, color: color)
+                    .frame(height: min(width * 0.88, 430) + 270)
+            }
         }
     }
     private func timeline(_ work: TMDBCatalog.PersonWork, marker: Bool, last: Bool) -> some View {

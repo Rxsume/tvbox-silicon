@@ -108,7 +108,7 @@ struct GlobalSearchView: View {
             #endif
             // The system search field, as on Sources and Live TV: under the title on iPhone and iPad, in the toolbar on
             // the Mac. Only Return or the keyboard's Search key searches; clearing the field goes back to the recent searches.
-            .catalogSearchable(text: model.$draft, prompt: L10n.text("Search videos"))
+            .catalogSearchable(text: Binding(get: { model.draft }, set: { model.draft = $0 }), prompt: L10n.text("Search videos"))
             .searchFieldFocused($inputFocused)
             .onSubmit(of: .search) { if let config = store.subscription { submit(config) } }
             .onChange(of: model.draft) { draft in if draft.isEmpty && !model.keyword.isEmpty { model.reset() } }
@@ -1104,12 +1104,17 @@ struct RecommendationsView: View {
                                client: CatalogClient(site: loadedSite, origin: config.origin, jarURL: config.spiderURL))
         }
         .onDisappear { browser.cancel() }
-        .navigationDestination(item: $openedSource) { route in
-            #if os(macOS)
-            route.build().musicBar()
-            #else
-            route.build()
-            #endif
+        .navigationDestination(isPresented: Binding(
+            get: { openedSource != nil },
+            set: { if !$0 { openedSource = nil } }
+        )) {
+            if let route = openedSource {
+                #if os(macOS)
+                route.build().musicBar()
+                #else
+                route.build()
+                #endif
+            }
         }
     }
 
@@ -1379,6 +1384,8 @@ struct ScrollStrip<Content: View>: View {
     @State private var position = ScrollPosition(idType: String.self)
     #endif
     @State private var edges = Edges()
+    @Namespace private var legacyScrollSpace
+    @State private var legacyViewportWidth: CGFloat = 0
     /// Live geometry and drag state. A plain reference, so updating it never invalidates the view.
     @State private var tracking = Tracking()
 
@@ -1408,6 +1415,8 @@ struct ScrollStrip<Content: View>: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         measuredContent
                     }
+                    .coordinateSpace(name: legacyScrollSpace)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { legacyViewportWidth = $0 }
                     #if os(macOS)
                     .scrollPosition($position)
                     #endif
@@ -1477,10 +1486,16 @@ struct ScrollStrip<Content: View>: View {
     @ViewBuilder private var measuredContent: some View {
         if #available(iOS 18, *) {
             content
-        } else {
+        } else if #available(iOS 17, *) {
             content.onGeometryChange(for: Metrics.self) { geometry in
                 let visible = geometry.bounds(of: .scrollView(axis: .horizontal)) ?? .zero
                 return Metrics(offset: visible.minX, viewport: visible.width, maximum: max(0, geometry.size.width - visible.width))
+            } action: { update($0) }
+        } else {
+            content.onGeometryChange(for: Metrics.self) { geometry in
+                let frame = geometry.frame(in: .named(legacyScrollSpace))
+                return Metrics(offset: max(0, -frame.minX), viewport: legacyViewportWidth,
+                               maximum: max(0, geometry.size.width - legacyViewportWidth))
             } action: { update($0) }
         }
     }

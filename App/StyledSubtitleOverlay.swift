@@ -88,9 +88,9 @@ struct StyledSubtitleCanvas: View {
             .frame(width: picture.width, height: picture.height)
             .position(x: picture.midX, y: picture.midY)
             .onAppear { resize() }
-            .onChange(of: picture.size) { resize() }
-            .onChange(of: scale) { resize() }
-            .onChange(of: video) { resize() }
+            .ios16OnChange(of: picture.size) { resize() }
+            .ios16OnChange(of: scale) { resize() }
+            .ios16OnChange(of: video) { resize() }
             .allowsHitTesting(false)
     }
 

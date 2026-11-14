@@ -73,6 +73,18 @@ struct MusicNowPlayingScreen: View {
         .sheet(isPresented: $showsChannels) { MusicChannelsView() }
     }
 
+    private struct SheetCorners: ViewModifier {
+        let radius: CGFloat?
+
+        @ViewBuilder func body(content: Content) -> some View {
+            if #available(iOS 16.4, *) {
+                content.presentationCornerRadius(radius)
+            } else {
+                content
+            }
+        }
+    }
+
     private var backdrop: some View {
         LinearGradient(colors: [tint.blend(with: .black, by: 0.2), tint.blend(with: .black, by: 0.62)], startPoint: .top, endPoint: .bottom)
     }
@@ -85,7 +97,7 @@ struct MusicNowPlayingScreen: View {
     }()
 
     @ViewBuilder private var sheetBackdrop: some View {
-        if Self.shapesOwnSheet {
+        if #available(iOS 26, *), Self.shapesOwnSheet {
             backdrop.clipShape(.rect(topLeadingRadius: 38, topTrailingRadius: 38, style: .continuous))
         } else {
             backdrop

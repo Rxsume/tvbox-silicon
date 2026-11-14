@@ -284,8 +284,8 @@ struct DiscoverSearchAtmosphere: View {
         let stops = (0...12).map { step in
             let location = Double(step) / 12
             // How far past the ellipse's edge this stop lies, in blur radii.
-            let outside = (location * reach - half) / blur
-            return Gradient.Stop(color: color.opacity(0.5 * erfc(outside / 2.squareRoot())), location: location)
+            let outside = (location * Double(reach) - Double(half)) / Double(blur)
+            return Gradient.Stop(color: color.opacity(0.5 * erfc(outside / Double(2).squareRoot())), location: location)
         }
         return EllipticalGradient(stops: stops, center: .center, startRadiusFraction: 0, endRadiusFraction: 0.5)
             // Drawn past the ellipse's frame, as the blur was, without changing the layout.
