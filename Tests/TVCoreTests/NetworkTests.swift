@@ -192,6 +192,20 @@ private actor SearchCollector {
     #expect(results.first { $0.id == "first" }?.page?.pageCount == 3)
 }
 
+@Test func globalSearchMaintainsBoundedConcurrencyWithManySources() async throws {
+    let base = URL(string: "https://example.com/config")!
+    let sites = (0..<30).map { index in
+        #"{"key":"source"# + String(index) + #"","type":4,"api":"/api"}"#
+    }.joined(separator: ",")
+    let sub = try Subscription.parse(Data((#"{"sites":["# + sites + "]}").utf8), origin: base)
+    let collector = SearchCollector()
+    await GlobalSearch.search(sites: sub.sites, origin: base, jarURL: nil, query: "movie", http: client()) {
+        await collector.append($0)
+    }
+    #expect(await collector.results.count == 30)
+    #expect(Set(await collector.results.map(\.id)).count == 30)
+}
+
 @Test func blankAndCancelledSearchDoNotPublishResults() async throws {
     let base = URL(string: "https://example.com/config")!
     let sub = try Subscription.parse(Data(#"{"sites":[{"key":"a","type":4,"api":"/api"}]}"#.utf8), origin: base)
@@ -372,10 +386,12 @@ private final class OfflineProtocol: URLProtocol, @unchecked Sendable {
     model.search("x", config: config)
     try await settle()
     #expect(model.videos(for: "p").map(\.id) == ["p1a", "p1b"])
+    #expect(model.uniqueVideoCount(for: "p") == 2 && model.videoCount == 2)
     #expect(model.canLoadMore(nil))
     model.loadMore(nil, config: config); try await settle()
     model.loadMore("p", config: config); try await settle()
     #expect(model.videos(for: "p").map(\.id) == ["p1a", "p1b", "p2a", "p2b", "p3a", "p3b"])
+    #expect(model.uniqueVideoCount(for: "p") == 6 && model.videoCount == 6)
     // Page 4 repeats page 3: nothing new, so the source is done although it claimed four pages.
     model.loadMore("p", config: config); try await settle()
     #expect(!model.canLoadMore("p") && model.batches.count == 2)

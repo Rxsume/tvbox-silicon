@@ -72,11 +72,11 @@ struct GlobalSearchView: View {
                 (model.busy && model.asking.contains(site.key)))
         }.map { site in
             SearchSourceItem(id: site.key, name: site.name,
-                             count: model.results.contains { $0.site.key == site.key } ? uniqueVideos(model.videos(for: site.key)).count : nil)
+                             count: model.results.contains { $0.site.key == site.key } ? model.uniqueVideoCount(for: site.key) : nil)
         }
         return [.init(id: "", name: L10n.text("All Sources"), count: model.videoCount)]
             + builtins
-            + model.matches.filter { !$0.site.isBuiltIn }.map { .init(id: $0.id, name: $0.site.name, count: uniqueVideos(model.videos(for: $0.id)).count,
+            + model.matches.filter { !$0.site.isBuiltIn }.map { .init(id: $0.id, name: $0.site.name, count: model.uniqueVideoCount(for: $0.id),
                                                                        dot: store.health(of: $0.site).warning) }
     }
 

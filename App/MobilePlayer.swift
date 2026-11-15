@@ -667,7 +667,8 @@ struct MobilePlayerView: View {
             }
             if pip.supported {
                 Button { pip.toggle() } label: {
-                    Image(systemName: pip.active ? "pip.exit" : "pip.enter").font(.headline).frame(width: 22, height: 22)
+                    Image(systemName: pip.active ? "pip.exit" : "pip.enter")
+                        .font(.headline).frame(width: 22, height: 22)
                 }
                 .chromeButton()
                 .disabled(!pip.possible && !pip.active)
@@ -697,7 +698,7 @@ struct MobilePlayerView: View {
             if !inline, PlayerOrientation.available, horizontalSizeClass == .compact || verticalSizeClass == .compact {
                 let landscape = verticalSizeClass == .compact
                 Button { PlayerOrientation.set(landscape: !landscape) } label: {
-                    Image(systemName: landscape ? "rectangle.portrait.rotate" : "rectangle.landscape.rotate").font(.headline).frame(width: 22, height: 22)
+                    Image(systemName: landscape ? "rotate.left" : "rotate.right").font(.headline).frame(width: 22, height: 22)
                 }
                 .chromeButton()
                 .accessibilityLabel(L10n.text(landscape ? "Rotate to Portrait" : "Rotate to Landscape"))

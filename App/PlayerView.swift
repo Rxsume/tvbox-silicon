@@ -18,7 +18,9 @@ struct PlaybackView: View {
     #if os(iOS)
     /// A watch page starts playing by itself, so its controls wait for a tap (`-qaPlayerControls` keeps them up).
     @State private var quietStart = !UserDefaults.standard.bool(forKey: "qaPlayerControls")
+    @State private var orientationChangedByPlayer = false
     #endif
+
     @AppStorage(DanmakuPreference.key) private var showsDanmaku = true
     @AppStorage(DanmakuArea.key) private var danmakuArea = DanmakuArea.standard
     @State private var showsDanmakuList = false
@@ -155,9 +157,24 @@ struct PlaybackView: View {
         .onAppear {
             startCatalogPlayback(session, channel: channel, store: store); showOnStart()
             #if os(iOS)
+            if watch == nil, PlayerOrientation.available, !session.isLive { Task { await autoOrientIfNeeded() } }
             ExternalDisplay.shared.attach(session.player)
             #endif
         }
+        #if os(iOS)
+        .onChange(of: session.isLive) { live in
+            guard watch == nil, PlayerOrientation.available else { return }
+            if live { releaseAutomaticLandscape() } else { Task { await autoOrientIfNeeded() } }
+        }
+        .onChange(of: channel) { _ in
+            releaseAutomaticLandscape()
+            if watch == nil { Task { await autoOrientIfNeeded() } }
+        }
+        .task(id: session.showsPicture) {
+            guard session.showsPicture, watch == nil else { return }
+            await autoOrientIfNeeded()
+        }
+        #endif
         #if DEBUG && os(iOS)
         // `-qaWatchFullScreen <seconds>`: a watch page's player goes full screen after that long, for screenshots.
         .task(id: watch != nil) {
@@ -178,6 +195,7 @@ struct PlaybackView: View {
             hideTask?.cancel(); store.cancelEpisodeSelection(); session.stop()
             #if os(iOS)
             ExternalDisplay.shared.detach(session.player)
+            releaseAutomaticLandscape()
             PlayerOrientation.release()
             #endif
         }
@@ -394,6 +412,29 @@ struct PlaybackView: View {
     private var playerLayout: MobilePlayerLayout {
         guard let watch else { return .screen }
         return watch.fullScreen ? .pageFullScreen : .inline
+    }
+
+    private func autoOrientIfNeeded() async {
+        guard watch == nil, PlayerOrientation.available, !session.isLive, !orientationChangedByPlayer else { return }
+        for _ in 0..<15 {
+            guard !Task.isCancelled, session.showsPicture, !session.isLive else { return }
+            let size = session.player.currentItem?.presentationSize ?? .zero
+            if size.width > 0, size.height > 0 {
+                if size.width > size.height {
+                    orientationChangedByPlayer = true
+                    PlayerOrientation.set(landscape: true)
+                }
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+
+    private func releaseAutomaticLandscape() {
+        if orientationChangedByPlayer {
+            orientationChangedByPlayer = false
+            PlayerOrientation.release()
+        }
     }
 
     /// Back: closes the player; on a watch page, leaves Full Screen, or the page.

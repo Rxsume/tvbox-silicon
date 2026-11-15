@@ -46,6 +46,12 @@ import Combine
         let created: Date
     }
     private var cache: [String: Cached] = [:]
+    private var derivedMatches: [SearchSourceResult]?
+    private var derivedVideos: [String: [Video]] = [:]
+    private var derivedUniqueCounts: [String: Int] = [:]
+    private var sourceVideoIDs: [String: Set<String>] = [:]
+    private var videoSourceCounts: [String: Int] = [:]
+    private var derivedVideoCount: Int?
     private var subscriptionID: String?
     /// Each source's position in `SourceStrategy` order, or the viewer's own; matches are listed in this order.
     private var rank: [String: Int] = [:]
@@ -56,16 +62,69 @@ import Combine
 
     public var failures: [SearchSourceResult] { results.filter { $0.error != nil } }
     public var matches: [SearchSourceResult] {
-        results.filter { $0.page?.videos.isEmpty == false }.enumerated().sorted { lhs, rhs in
+        if let derivedMatches { return derivedMatches }
+        let matched = results.filter { $0.page?.videos.isEmpty == false }
+        let ordered = matched.enumerated().sorted { lhs, rhs in
             let left = rank[lhs.element.id] ?? .max, right = rank[rhs.element.id] ?? .max
             return left == right ? lhs.offset < rhs.offset : left < right
         }.map(\.element)
+        derivedMatches = ordered
+        return ordered
     }
-    public var videoCount: Int { matches.reduce(0) { $0 + Set(videos(for: $1.id).map(\.id)).count } }
+    public var videoCount: Int {
+        if let derivedVideoCount { return derivedVideoCount }
+        derivedVideoCount = videoSourceCounts.count
+        return videoSourceCounts.count
+    }
+
+    private func invalidateDerivedResults(for source: String? = nil) {
+        derivedMatches = nil
+        derivedVideoCount = nil
+        guard let source else {
+            derivedVideos.removeAll(keepingCapacity: true)
+            derivedUniqueCounts.removeAll(keepingCapacity: true)
+            sourceVideoIDs.removeAll(keepingCapacity: true)
+            videoSourceCounts.removeAll(keepingCapacity: true)
+            for result in results where result.page?.videos.isEmpty == false { index(result.page?.videos ?? [], source: result.id) }
+            for batch in batches { index(batch.videos, source: batch.source) }
+            return
+        }
+        derivedVideos[source] = nil
+        derivedUniqueCounts[source] = nil
+    }
+
+    private func index(_ videos: [Video], source: String) {
+        var ids = sourceVideoIDs[source] ?? []
+        for video in videos where ids.insert(video.id).inserted {
+            videoSourceCounts[video.id, default: 0] += 1
+        }
+        sourceVideoIDs[source] = ids
+        derivedUniqueCounts[source] = ids.count
+        derivedVideoCount = videoSourceCounts.count
+    }
+
+    private func rebuildResultIndex() {
+        invalidateDerivedResults()
+        for result in results where result.page?.videos.isEmpty == false {
+            index(result.page?.videos ?? [], source: result.id)
+        }
+    }
 
     /// A source's results so far: its first page, then each later page.
     public func videos(for source: String) -> [Video] {
-        (results.first { $0.id == source }?.page?.videos ?? []) + batches.filter { $0.source == source }.flatMap(\.videos)
+        if let cached = derivedVideos[source] { return cached }
+        let videos = (results.first { $0.id == source }?.page?.videos ?? []) + batches.filter { $0.source == source }.flatMap(\.videos)
+        derivedVideos[source] = videos
+        return videos
+    }
+
+    public func uniqueVideoCount(for source: String) -> Int {
+        if let cached = derivedUniqueCounts[source] { return cached }
+        let videos = (results.first { $0.id == source }?.page?.videos ?? []) + batches.filter { $0.source == source }.flatMap(\.videos)
+        index(videos, source: source)
+        let count = sourceVideoIDs[source]?.count ?? 0
+        derivedUniqueCounts[source] = count
+        return count
     }
 
     /// Shows one source's results (nil: every source). The choice carries over to later searches.
@@ -100,7 +159,11 @@ import Combine
                 let known = Set(self.videos(for: result.id).map(\.id))
                 let fresh = (answer?.videos ?? []).filter { !known.contains($0.id) }
                 self.nextPage[result.id] = fresh.isEmpty ? Int.max : page + 1
-                if !fresh.isEmpty { self.batches.append(SearchBatch(source: result.id, page: page, videos: fresh)) }
+                if !fresh.isEmpty {
+                    self.batches.append(SearchBatch(source: result.id, page: page, videos: fresh))
+                    self.index(fresh, source: result.id)
+                    self.invalidateDerivedResults(for: result.id)
+                }
             }
             if self.runID == run, self.pageGeneration == pageToken {
                 self.loadingMore = false; self.moreTask = nil
@@ -116,6 +179,7 @@ import Combine
     private func clearPages() {
         cancelPages()
         batches = []; nextPage = [:]; loadingMore = false; runID = UUID()
+        invalidateDerivedResults()
     }
 
     public func stop() {
@@ -187,6 +251,7 @@ import Combine
             results = Self.visible(hit.results, excluding: hidden)
             total = sites.count
             completed = results.count
+            rebuildResultIndex()
             stopped = false
             return
         }
@@ -272,5 +337,7 @@ import Combine
         activeSources.removeAll { $0.id == result.id }
         completed += 1
         results.append(result)
+        if let videos = result.page?.videos, !videos.isEmpty { index(videos, source: result.id) }
+        invalidateDerivedResults(for: result.id)
     }
 }
