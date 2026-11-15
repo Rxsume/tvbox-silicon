@@ -1,4 +1,5 @@
 #if !os(tvOS)
+import Combine
 import ImageIO
 import SwiftUI
 import TVCore
@@ -46,13 +47,13 @@ enum AppIconChoice: String, CaseIterable, Identifiable {
 }
 
 /// The icon in use and the way to change it.
-@MainActor @Observable final class AppIcons {
+@MainActor final class AppIcons: ObservableObject {
     static let shared = AppIcons()
 
     /// The icon in use; nil while the Mac shows a picture of the viewer's own.
-    private(set) var current: AppIconChoice? = .standard
+    @Published private(set) var current: AppIconChoice? = .standard
     /// Why the last change didn't happen.
-    var failure: String?
+    @Published var failure: String?
 
     /// The name Settings shows beside App Icon.
     var title: String { current?.title ?? L10n.text("Custom") }
@@ -108,7 +109,7 @@ enum AppIconChoice: String, CaseIterable, Identifiable {
         /// the plate.
         let shaped: Bool
     }
-    private(set) var custom: CustomIcon?
+    @Published private(set) var custom: CustomIcon?
 
     private init() {
         custom = Self.loadCustom()
@@ -250,7 +251,7 @@ enum AppIconChoice: String, CaseIterable, Identifiable {
 // MARK: Settings › App Icon
 
 struct AppIconSettingsView: View {
-    @State private var icons = AppIcons.shared
+    @EnvironmentObject private var icons: AppIcons
     #if os(macOS)
     @State private var choosesPicture = false
     #endif

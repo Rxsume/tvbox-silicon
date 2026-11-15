@@ -505,6 +505,9 @@ private struct HomeFavoriteCard: View {
 /// The app icon artwork, masked like a home-screen icon: on iPhone, iPad and Mac the one picked in Settings › App Icon;
 /// on Apple TV, Aurora, the TV's own icon (Design/make-tvos-icon.swift).
 struct AppMark: View {
+    #if !os(tvOS)
+    @EnvironmentObject private var icons: AppIcons
+    #endif
     var size: CGFloat
     var body: some View {
         artwork.resizable().interpolation(.high).scaledToFill()
@@ -516,7 +519,7 @@ struct AppMark: View {
         #if os(tvOS)
         Image("AppMark")
         #else
-        AppIcons.shared.artwork
+        icons.artwork
         #endif
     }
 }

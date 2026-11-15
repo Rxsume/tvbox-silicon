@@ -203,7 +203,7 @@ struct DiscoverBackdrop: View {
                     .clipped()
             }
                 .offset(y: -max(0, scrollY) * 0.78)
-                .opacity(max(0, 1 - max(0, scrollY) / (heroHeight * 0.35)))
+                .opacity(Double(max(CGFloat.zero, CGFloat(1) - max(CGFloat.zero, scrollY) / max(heroHeight * 0.35, 1))))
                 .allowsHitTesting(false)
         }
     }

@@ -340,6 +340,7 @@ private enum SettingsNote {
 struct FormSettingsView: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var updates: Updates
+    @EnvironmentObject private var icons: AppIcons
     @State private var cloudSummary = ""
     @State private var bilibiliSummary = ""
     @State private var douyinSummary = ""
@@ -569,7 +570,7 @@ struct FormSettingsView: View {
             Section {
                 FormLink(symbol: AppSection.home.icon, tint: Brand.cyan, title: L10n.text("Watch Now")) { WatchNowSettingsView() }
                 if AppIcons.isAvailable {
-                    FormLink(symbol: "paintpalette.fill", tint: .pink, title: L10n.text("App Icon"), value: AppIcons.shared.title) { AppIconSettingsView() }
+                    FormLink(symbol: "paintpalette.fill", tint: .pink, title: L10n.text("App Icon"), value: icons.title) { AppIconSettingsView() }
                         .accessibilityIdentifier("settings.appIcon")
                 }
                 FormLink(symbol: "slider.horizontal.below.rectangle", tint: .orange, title: L10n.text("Playback")) { PlaybackSettingsView() }
@@ -584,7 +585,7 @@ struct FormSettingsView: View {
             Section {
                 FormLink(symbol: AppSection.home.icon, tint: Brand.cyan, title: L10n.text("Watch Now")) { WatchNowSettingsView() }
                 if AppIcons.isAvailable {
-                    FormLink(symbol: "paintpalette.fill", tint: .pink, title: L10n.text("App Icon"), value: AppIcons.shared.title) { AppIconSettingsView() }
+                    FormLink(symbol: "paintpalette.fill", tint: .pink, title: L10n.text("App Icon"), value: icons.title) { AppIconSettingsView() }
                         .accessibilityIdentifier("settings.appIcon")
                 }
                 // iPhone and iPad list the app's language in the Settings app; on the Mac it is hidden deep in System

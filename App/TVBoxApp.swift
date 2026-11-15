@@ -4,12 +4,16 @@ import TVCore
 @main struct TVBoxApp: App {
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
-    @State private var store = Store.shared
+    @StateObject private var store = Store.shared
     #else
-    @State private var store = Store()
+    @StateObject private var store = Store()
     #endif
-    @State private var updates = Updates()
-    @State private var announcements = Announcements()
+    @StateObject private var updates = Updates()
+    @StateObject private var announcements = Announcements()
+    @StateObject private var emptyGuide = LiveGuide()
+    #if !os(tvOS)
+    @StateObject private var icons = AppIcons.shared
+    #endif
     #if os(iOS)
     /// An Apple TV's Douyin code, scanned with the Camera.
     @State private var douyinHandoff: DouyinHandoff.Link?
@@ -74,7 +78,7 @@ import TVCore
                 #endif
                 #if os(macOS)
                 // The Dock icon picked in Settings › App Icon; the bundle's own shows until here.
-                .task { AppIcons.shared.apply() }
+                .task { icons.apply() }
                 #endif
                 #if os(iOS)
                 // Both links carry the app's one scheme, and only the action's host tells them apart.
@@ -134,6 +138,10 @@ import TVCore
                 // Outside every modifier above, so the import and Douyin sheets get them too: on RootView alone, a
                 // yingxia://import link stopped the app ("No Observable object of type Store found", TestFlight 49-51).
                 .environmentObject(store).environmentObject(updates).environmentObject(announcements)
+                .environmentObject(emptyGuide)
+                #if !os(tvOS)
+                .environmentObject(icons)
+                #endif
         }
         #if os(macOS)
         .defaultSize(width: 1240, height: 820)

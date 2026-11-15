@@ -155,7 +155,7 @@ private struct TVEpisodePlateStyle: ButtonStyle {
 /// the picture like the Episodes tab.
 struct TVPlayerChannelsPanel: View {
     let channel: Channel
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var selectedGroup: String?
 
     /// The channel playing now, which may have changed while the panel was open.
@@ -165,7 +165,7 @@ struct TVPlayerChannelsPanel: View {
         Group {
             if let lineup = store.lineup(for: playing) { content(lineup) } else { Color.clear }
         }
-        .environment(store.guide(for: playing))
+        .liveGuide(store.guide(for: playing))
         .glassSurface(.regular, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
     }
@@ -191,7 +191,7 @@ struct TVPlayerChannelsPanel: View {
                         }
                         .padding(.horizontal, 40).padding(.vertical, 8)
                     }
-                    .scrollClipDisabled()
+                    .ios16ScrollClipDisabled()
                     .focusSection()
                     .onAppear { proxy.scrollTo(group, anchor: .center) }
                 }
@@ -219,10 +219,10 @@ struct TVPlayerChannelsPanel: View {
                     }
                     .padding(.horizontal, 40).padding(.vertical, 10)
                 }
-                .scrollClipDisabled()
+                .ios16ScrollClipDisabled()
                 .focusSection()
                 .onAppear { proxy.scrollTo(playing.id, anchor: .center) }
-                .onChange(of: group) { _, _ in if let first = items.first { proxy.scrollTo(first.id, anchor: .leading) } }
+                .ios16OnChange(of: group) { if let first = items.first { proxy.scrollTo(first.id, anchor: .leading) } }
             }
         }
         .padding(.vertical, 20)

@@ -12,7 +12,7 @@ struct GatherMark: View {
         Group {
             if reduceMotion {
                 GatherMarkFrame(time: GatherTimeline.duration)
-            } else {
+            } else if #available(iOS 17, tvOS 17, macOS 14, *) {
                 KeyframeAnimator(initialValue: 0.0, trigger: plays) { time in
                     GatherMarkFrame(time: time)
                 } keyframes: { _ in
@@ -21,11 +21,28 @@ struct GatherMark: View {
                         LinearKeyframe(GatherTimeline.duration, duration: GatherTimeline.duration)
                     }
                 }
+            } else {
+                GatherMarkLegacyAnimation(plays: plays, reduceMotion: reduceMotion)
             }
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityHidden(true)
         .onAppear { plays += 1 }
+    }
+}
+
+private struct GatherMarkLegacyAnimation: View {
+    let plays: Int
+    let reduceMotion: Bool
+    @State private var started = Date()
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+            let elapsed = min(GatherTimeline.duration, max(0, context.date.timeIntervalSince(started)))
+            GatherMarkFrame(time: elapsed)
+        }
+        .onAppear { started = Date() }
+        .onChange(of: plays) { _ in started = Date() }
     }
 }
 

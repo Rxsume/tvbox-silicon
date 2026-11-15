@@ -1,15 +1,29 @@
+import Combine
 import SwiftUI
 import TVCore
 
 /// The program guide of a live playlist (#802): what's on each channel now and next. An XMLTV file loads once for the
 /// whole playlist; a per-channel address (DIYP) is asked for each channel as it shows on screen.
-@MainActor @Observable final class LiveGuide {
-    let address: GuideAddress
-    private(set) var guide: ProgramGuide?
-    private(set) var perChannel: [String: [Programme]] = [:]
-    @ObservationIgnored private var asked = Set<String>()
+@MainActor final class LiveGuide: ObservableObject {
+    /// Nil keeps channel rows usable when the playlist has no program guide.
+    @Published private(set) var address: GuideAddress?
+    @Published private(set) var guide: ProgramGuide?
+    @Published private(set) var perChannel: [String: [Programme]] = [:]
+    private var asked = Set<String>()
+    private var revision = 0
 
     init(address: GuideAddress) { self.address = address }
+    init() { address = nil }
+
+    /// Keep the view-owned object stable when the viewer changes its guide address.
+    func use(_ address: GuideAddress?) {
+        guard self.address != address else { return }
+        self.address = address
+        revision += 1
+        guide = nil
+        perChannel = [:]
+        asked.removeAll()
+    }
 
     /// The guide a playlist uses: the address the viewer typed in for it, else its subscription entry's `epg`, else
     /// the `x-tvg-url` its M3U header names.
@@ -23,16 +37,21 @@ import TVCore
 
     func schedule(for channel: Channel) -> [Programme]? {
         switch address {
-        case .xmltv: guide?.schedule(for: channel)
-        case .perChannel: perChannel[channel.name]
+        case .xmltv?: guide?.schedule(for: channel)
+        case .perChannel?: perChannel[channel.name]
+        case nil: nil
         }
     }
 
     /// Loads an XMLTV guide for the playlist's channels.
     func load(_ channels: [Channel]) async {
-        guard case let .xmltv(url) = address else { return }
-        do { guide = try await ProgramGuides.shared.guide(url, for: channels) }
-        catch {
+        guard let address, case let .xmltv(url) = address else { return }
+        let revision = revision
+        do {
+            let loaded = try await ProgramGuides.shared.guide(url, for: channels)
+            guard self.revision == revision else { return }
+            guide = loaded
+        } catch {
             guard !(error is CancellationError) else { return }
             Diagnostics.shared.record(.warning, "live", "guide not loaded host=\(url.host() ?? "-"): \(error.localizedDescription)")
         }
@@ -40,12 +59,43 @@ import TVCore
 
     /// Asks a per-channel guide for the channel's programmes today, once.
     func fetch(_ channel: Channel) async {
-        guard case .perChannel = address, asked.insert(channel.name).inserted else { return }
-        if let programmes = await ProgramGuides.shared.schedule(address, name: channel.name) {
+        guard let address, case .perChannel = address, asked.insert(channel.name).inserted else { return }
+        let revision = revision
+        let programmes = await ProgramGuides.shared.schedule(address, name: channel.name)
+        guard self.revision == revision else { return }
+        if let programmes {
             if !programmes.isEmpty { perChannel[channel.name] = programmes }
         } else {
             asked.remove(channel.name)
         }
+    }
+}
+
+extension View {
+    /// Players can have no playlist guide; inject a stable empty one in that case.
+    func liveGuide(_ guide: LiveGuide?) -> some View {
+        modifier(LiveGuideEnvironment(guide: guide))
+    }
+}
+
+private struct LiveGuideEnvironment: ViewModifier {
+    let guide: LiveGuide?
+    @StateObject private var empty = LiveGuide()
+
+    func body(content: Content) -> some View {
+        content.environmentObject(guide ?? empty)
+    }
+}
+
+private struct GuideRequest: Hashable {
+    let guide: ObjectIdentifier
+    let address: GuideAddress?
+    let channel: String
+
+    @MainActor init(guide: LiveGuide, channel: Channel) {
+        self.guide = ObjectIdentifier(guide)
+        address = guide.address
+        self.channel = channel.name
     }
 }
 
@@ -60,9 +110,9 @@ struct ProgrammeTimes: TimelineSchedule {
 struct NowOnText: View {
     let channel: Channel
     var otherwise: String? = nil
-    @Environment(LiveGuide.self) private var guide: LiveGuide?
+    @EnvironmentObject private var guide: LiveGuide
     var body: some View {
-        let schedule = guide?.schedule(for: channel) ?? []
+        let schedule = guide.schedule(for: channel) ?? []
         Group {
             if schedule.isEmpty {
                 if let otherwise { Text(otherwise) }
@@ -72,7 +122,7 @@ struct NowOnText: View {
                 }
             }
         }
-        .task(id: channel.name) { await guide?.fetch(channel) }
+        .task(id: GuideRequest(guide: guide, channel: channel)) { await guide.fetch(channel) }
     }
 }
 
@@ -80,9 +130,9 @@ struct NowOnText: View {
 /// channel. Nothing without a guide.
 struct NowAndNext: View {
     let channel: Channel
-    @Environment(LiveGuide.self) private var guide: LiveGuide?
+    @EnvironmentObject private var guide: LiveGuide
     var body: some View {
-        let schedule = guide?.schedule(for: channel) ?? []
+        let schedule = guide.schedule(for: channel) ?? []
         Group {
             if !schedule.isEmpty {
                 TimelineView(.everyMinute) { context in
@@ -98,7 +148,7 @@ struct NowAndNext: View {
                 }
             }
         }
-        .task(id: channel.name) { await guide?.fetch(channel) }
+        .task(id: GuideRequest(guide: guide, channel: channel)) { await guide.fetch(channel) }
     }
 
     private func line(_ label: String, _ programme: Programme, emphasis: Bool) -> some View {
@@ -117,7 +167,7 @@ struct GuideAddressAlert: ViewModifier {
     /// The address the playlist gives itself, shown as the field's placeholder.
     let automatic: String?
     let saved: () -> Void
-    @Environment(Store.self) private var store
+    @EnvironmentObject private var store: Store
     @State private var text = ""
 
     func body(content: Content) -> some View {
@@ -138,6 +188,6 @@ struct GuideAddressAlert: ViewModifier {
             } message: {
                 Text(L10n.text("An XMLTV file (.xml or .xml.gz), or an address with {name} for each channel. Leave it empty to use the playlist's own guide."))
             }
-            .onChange(of: isPresented) { _, shown in if shown { text = store.guideAddresses[source.url.absoluteString] ?? "" } }
+            .ios16OnChange(of: isPresented) { shown in if shown { text = store.guideAddresses[source.url.absoluteString] ?? "" } }
     }
 }
