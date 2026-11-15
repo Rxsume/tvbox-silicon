@@ -25,7 +25,10 @@ actor DiscoverPainter {
     /// Up Next), whose sharp half would show its low resolution at the size of the screen.
     func paint(_ source: URL, headers: [String: String] = [:], soft: Bool = false) async -> DiscoverPaint? {
         let key = (soft ? "soft|" : "") + source.absoluteString
-        if let cached = cache[key] { return cached }
+        if let cached = cache[key] {
+            touch(key)
+            return cached
+        }
         if let task = pending[key] { return await task.value }
         // The rails use w500; the full-width cover needs enough pixels for the phone's display.
         let url = ["images.tmdb.org", "image.tmdb.org"].contains(source.host ?? "")
@@ -36,10 +39,18 @@ actor DiscoverPainter {
         pending[key] = nil
         if let result {
             cache[key] = result
-            order.append(key)
-            if order.count > 12 { cache.removeValue(forKey: order.removeFirst()) }
+            touch(key)
+            if order.count > 12, let expired = order.first {
+                order.removeFirst()
+                cache.removeValue(forKey: expired)
+            }
         }
         return result
+    }
+
+    private func touch(_ key: String) {
+        order.removeAll { $0 == key }
+        order.append(key)
     }
 
     private func render(_ url: URL, headers: [String: String], soft: Bool) async -> DiscoverPaint? {

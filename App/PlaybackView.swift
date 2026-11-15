@@ -187,6 +187,7 @@ import IOKit.pwr_mgt
     private var upcomingObservation: NSKeyValueObservation?
     /// Whether this episode has already tried to queue the next one (once each, even when that failed).
     private var upcomingAttempted = false
+    private var upcomingPreloadPolicy = UpcomingPreloadPolicy()
     /// The queue moves past this episode because the next one was asked for, not because it ended.
     private var skipsToUpcoming = false
     /// The episode the queue moved on to, which `start` then finds already playing.
@@ -195,7 +196,7 @@ import IOKit.pwr_mgt
     private var item: AVPlayerItem?
     private var queueObservation: NSKeyValueObservation?
     /// How long before an episode's end (or its skipped outro) the next one starts loading.
-    static let upcomingLead: Double = 30
+    var upcomingLead: Double { upcomingPreloadPolicy.lead }
     /// Why the player is switching lines, shown while the other line loads.
     private var switchNotice: String?
     /// Qualities the stream can switch between (Bilibili), and the one chosen; nil is automatic.
@@ -1488,9 +1489,10 @@ extension PlaybackSession {
         let length = item.duration.seconds, time = item.currentTime().seconds
         guard length.isFinite, length > 0, time.isFinite else { return }
         let end = skipSettings.enabled && skipSettings.outroLength > 0 ? length - skipSettings.outroLength : length
-        guard end - time <= Self.upcomingLead else { return }
+        guard end - time <= upcomingLead else { return }
         upcomingAttempted = true
         let activeGeneration = generation
+        let preparationStarted = Date()
         upcomingTask = Task { [weak self] in
             guard let next = await upcomingEpisode(), let self, self.generation == activeGeneration, !Task.isCancelled else { return }
             let prepared: Prepared
@@ -1503,6 +1505,9 @@ extension PlaybackSession {
                   !prepared.matroska, !prepared.pluginProxy, self.player.currentItem === item else {
                 return Self.release(next, prepared)
             }
+            let preparationTime = max(0, Date().timeIntervalSince(preparationStarted))
+            self.upcomingPreloadPolicy.recordPreparation(seconds: preparationTime)
+            Diagnostics.shared.record(.info, "player", "upcoming prepared latency=\(Int(preparationTime * 1000))ms lead=\(Int(self.upcomingLead))s name=\(next.name)")
             let queued = self.makeItem(next, url: prepared.url)
             guard self.player.canInsert(queued, after: item) else { return Self.release(next, prepared) }
             self.player.insert(queued, after: item)
