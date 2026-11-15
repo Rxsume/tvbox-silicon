@@ -119,13 +119,14 @@ struct DiscoverBackdrop: View {
     @State private var videoReady = false
     /// Mac: the floating sidebar's width, which the split view reports as a leading inset.
     @State private var leadingInset: CGFloat = 0
+    @ViewBuilder
     var body: some View {
+        #if os(tvOS)
         let travel = max(0, scrollY)
         let fade: CGFloat = heroHeight > 0 ? max(0, 1 - travel / heroHeight) : 0
-        #if os(tvOS)
-        return AnyView(tvBackdrop(travel: travel, fade: fade))
+        tvBackdrop(travel: travel, fade: fade)
         #else
-        return AnyView(phoneBackdrop)
+        phoneBackdrop
         #endif
     }
 
@@ -152,34 +153,9 @@ struct DiscoverBackdrop: View {
     #else
     private var phoneBackdrop: some View {
         ZStack(alignment: .top) {
-            (paint?.color ?? Color(white: 0.06))
-            if let paint {
-                Image(decorative: paint.image, scale: 1).resizable().scaledToFill()
-                    .frame(width: width, height: heroHeight)
-                    .scaleEffect(1.2 + max(0, -scrollY) / max(heroHeight, 1), anchor: .center)
-                    .offset(y: -scrollY * 0.78)
-                    .opacity(Double(max(0, CGFloat(1) - max(0, scrollY - heroHeight * 0.45) / max(heroHeight * 0.55, 1))))
-                    .opacity(videoReady ? 0 : 1)
-                    .frame(width: width, height: heroHeight, alignment: .top).clipped()
-                    .mask {
-                        LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.72),
-                                               .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)
-                    }
-            }
-            if let trailer, playsTrailer {
-                // On the Mac the video runs on under the sidebar, mirrored there, while staying centred on the page
-                // (the inset is 0 elsewhere). An overlay, so the wider video doesn't widen the page.
-                Color.clear.frame(width: width, height: heroHeight).overlay(alignment: .trailing) {
-                    DiscoverTrailer(trailer: trailer, mirrorWidth: leadingInset) { ready in
-                        withAnimation(.easeOut(duration: 0.4)) { videoReady = ready }
-                    }
-                        .frame(width: width + leadingInset, height: heroHeight)
-                        .clipped()
-                }
-                    .offset(y: -max(0, scrollY) * 0.78)
-                    .opacity(max(0, 1 - max(0, scrollY) / (heroHeight * 0.35)))
-                    .allowsHitTesting(false)
-            }
+            paint?.color ?? Color(white: 0.06)
+            posterLayer
+            trailerLayer
         }
         #if os(macOS)
         .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.leading } action: { leadingInset = $0 }
@@ -188,6 +164,37 @@ struct DiscoverBackdrop: View {
         .accessibilityHidden(true)
         .onChange(of: trailer?.key) { _ in videoReady = false }
         .onChange(of: playsTrailer) { plays in if !plays { videoReady = false } }
+    }
+
+    @ViewBuilder private var posterLayer: some View {
+        if let paint {
+            Image(decorative: paint.image, scale: 1).resizable().scaledToFill()
+                .frame(width: width, height: heroHeight)
+                .scaleEffect(1.2 + max(0, -scrollY) / max(heroHeight, 1), anchor: .center)
+                .offset(y: -scrollY * 0.78)
+                .opacity(Double(max(0, CGFloat(1) - max(0, scrollY - heroHeight * 0.45) / max(heroHeight * 0.55, 1))))
+                .opacity(videoReady ? 0 : 1)
+                .frame(width: width, height: heroHeight, alignment: .top).clipped()
+                .mask {
+                    LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.72),
+                                           .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)
+                }
+        }
+    }
+
+    @ViewBuilder private var trailerLayer: some View {
+        if let trailer, playsTrailer {
+            Color.clear.frame(width: width, height: heroHeight).overlay(alignment: .trailing) {
+                DiscoverTrailer(trailer: trailer, mirrorWidth: leadingInset) { ready in
+                    withAnimation(.easeOut(duration: 0.4)) { videoReady = ready }
+                }
+                    .frame(width: width + leadingInset, height: heroHeight)
+                    .clipped()
+            }
+                .offset(y: -max(0, scrollY) * 0.78)
+                .opacity(max(0, 1 - max(0, scrollY) / (heroHeight * 0.35)))
+                .allowsHitTesting(false)
+        }
     }
     #endif
 }
