@@ -808,6 +808,7 @@
 "The channel's music account is blocked for now." = "此渠道的音乐账号暂时被风控。";
 "The channel needs a valid key." = "此渠道需要有效的密钥。";
 "The channel took too long to answer." = "此渠道响应超时。";
+"None of your subscriptions lists music channels. Add one that does, such as the recommended sources, to play music." = "你添加的订阅都没有提供音乐渠道。请添加提供音乐渠道的订阅（例如推荐片源的订阅）后再播放。";
 "The channel sent an answer the app can't read." = "此渠道返回了无法识别的内容。";
 "This device can't play the channel's audio format." = "此设备无法播放该渠道的音频格式。";
 "No lossless version is available right now." = "暂未找到可用无损版本。";
@@ -1972,3 +1973,43 @@
 "Added" = "已添加";
 "Adding…" = "正在添加…";
 "The file is larger than %lld MB." = "文件超过 %lld MB。";
+"Previous Channel" = "上一个频道";
+"Next Channel" = "下一个频道";
+"Channel List" = "频道列表";
+"Line %@" = "线路 %@";
+"Line %@ didn't play. Trying line %@." = "线路 %1$@ 无法播放，正在尝试线路 %2$@。";
+"Search Time Limit" = "搜索时限";
+"%@ seconds" = "%@ 秒";
+"How long Search Online waits for the sources. Results show as each source answers, so a longer limit only waits longer for slow ones." = "在线搜索等待各字幕来源的时长。每个来源一有结果就会显示，所以时限加长只是多等慢的来源。";
+
+/* Sources page (#973, #974, #994) */
+"Search for “%@”" = "搜索“%@”";
+"Videos from every source" = "在全部点播源中找影片";
+"Move Left" = "左移";
+"Move Right" = "右移";
+/* Live program guide (#802) */
+"Program Guide" = "节目单";
+"Now On" = "正在播出";
+"Coming Up" = "即将播出";
+"An XMLTV file (.xml or .xml.gz), or an address with {name} for each channel. Leave it empty to use the playlist's own guide." = "XMLTV 文件（.xml 或 .xml.gz），或带 {name} 的按频道查询地址。留空则使用直播源自带的节目单。";
+
+/* Settings › App Icon */
+"App Icon" = "应用图标";
+"Aurora" = "极光";
+"Classic" = "经典";
+"Porcelain" = "白瓷";
+"Obsidian" = "黑曜石";
+"Azure" = "蔚蓝";
+"Daybreak" = "破晓";
+"Iris" = "鸢尾";
+"Lagoon" = "泻湖";
+"Rose Quartz" = "玫瑰石英";
+"Citrus" = "柑橘";
+"Cosmic" = "宇宙";
+"Couldn't change the app icon: %@" = "无法更换应用图标：%@";
+"Couldn't open that picture." = "无法打开这张图片。";
+"A square picture works best. One with see-through corners, such as an icon made for the Mac, shows as it is." = "方形图片效果最好。四角透明的图片（例如为 Mac 制作的图标）会按原样显示。";
+"Choose Picture…" = "选择图片…";
+"Remove Custom Picture" = "移除自定图片";
+"The Dock shows the icon you pick while Yingxia is open. Elsewhere, such as in Finder, the app keeps Aurora." = "映匣打开时，程序坞显示你选的图标；在访达等其他地方仍是“极光”。";
+"The icon on your Home Screen. The system confirms the change with a short message." = "主屏幕上的图标。更换后，系统会弹出一条简短提示。";

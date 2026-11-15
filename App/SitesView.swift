@@ -12,15 +12,26 @@ struct SitesView: View {
     var picked: String? = nil
     @FocusState private var focusedSite: String?
     @State private var query = ""
-    @State private var previousQuery = ""
     /// Groups the viewer folded. Every group starts open, subscriptions and hidden sources included,
     /// so nothing on the page needs finding, and stays as the viewer left it: a fold is saved and comes
     /// back on the next visit and launch (#517). Picking a source always starts open, so the current
     /// choice can be shown. `prepared` keeps the reload to once per visit, not per pushed source.
     @State private var collapsed: Set<String>
     @State private var prepared = false
-    /// The fold as it was when a search began; restored when the search is cleared.
-    @State private var foldBeforeSearch: Set<String>?
+    /// Groups folded during the current search. A search opens every group; clearing it shows the page's own fold
+    /// again in the same update. Swapping `collapsed` in `onChange` drew one pass with every group open, hidden
+    /// sources included, before the fold came back: the page flickered or folded with cards ghosting over it (#935).
+    @State private var searchFold: Set<String> = []
+    #if os(tvOS)
+    private var folded: Set<String> { query.isEmpty ? collapsed : searchFold }
+    #else
+    /// iPhone, iPad and Mac show one group at a time, switched from a row of chips, rather than folding them (#994, #975,
+    /// #1006): with a dozen subscriptions, the folds were a long page to scroll and fold one by one.
+    private var folded: Set<String> { [] }
+    /// The group chosen from the chips; saved, so the page opens on it again. Nil until one is chosen.
+    @State private var group: String?
+    private static let groupKey = "sources.group"
+    #endif
     @State private var arranging = false
     @State private var choosingHidden = false
     init(pick: ((Site) -> Void)? = nil, pickable: [Site] = [], picked: String? = nil) {
@@ -28,6 +39,9 @@ struct SitesView: View {
         self.pickable = pickable
         self.picked = picked
         _collapsed = State(initialValue: pick == nil ? Self.savedFold : [])
+        #if !os(tvOS)
+        _group = State(initialValue: pick == nil ? UserDefaults.standard.string(forKey: Self.groupKey) : nil)
+        #endif
     }
     private static let foldKey = "sources.foldedGroups"
     private static var savedFold: Set<String> { Set(UserDefaults.standard.stringArray(forKey: foldKey) ?? []) }
@@ -41,15 +55,22 @@ struct SitesView: View {
                 ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: Layout.cardSpacing) {
+                        #if os(tvOS)
                         if pick == nil, query.isEmpty && sites.count > 1 {
                             VStack(alignment: .leading, spacing: Layout.cardSpacing) {
                                 SourceOrderCard(sites: sites) { arranging = true }
                                 HideSourcesCard(hidden: hiddenCount) { choosingHidden = true }
                             }.tvFocusSection()
                         }
-                        ForEach(groups) { group in
+                        #else
+                        // The search order and hiding sources are under Edit (#973, #994).
+                        if query.isEmpty, groups.count > 1 { groupChips(groups) }
+                        // A search finds sources by name; the first row looks for the videos instead (#974).
+                        if pick == nil, !query.isEmpty { SearchVideosRow(query: query) }
+                        #endif
+                        ForEach(shown(groups)) { group in
                             groupHeader(group)
-                            if !collapsed.contains(group.id) {
+                            if !folded.contains(group.id) {
                                 LazyVGrid(columns: Layout.cardColumns, spacing: Layout.cardSpacing) {
                                     ForEach(group.sites) { site in
                                         if let pick {
@@ -79,6 +100,8 @@ struct SitesView: View {
                         }
                         #endif
                     }.pageContainer()
+                    // Starting or clearing a search swaps the whole page at once: never as a fade.
+                    .animation(nil, value: query)
                 }
                 // Picking opens on the current choice rather than the top of a long page.
                 .ios16DefaultFocus($focusedSite, picked)
@@ -101,13 +124,24 @@ struct SitesView: View {
         .screenBackdrop()
         .catalogSearchable(text: $query, prompt: L10n.text("Find a source"))
         .modifier(SitesTitle(picking: pick != nil))
+        #if DEBUG
+        // `-qaSection sites -qaQuery <text>` shows the Sources page's search.
+        .task { if pick == nil, QALaunch.section == .sites, let text = UserDefaults.standard.string(forKey: "qaQuery") { query = text } }
+        #endif
         #if !os(tvOS)
         .toolbar {
             // Edit, where people look first to remove a source that stopped working or to bring back one they hid
-            // (#669, #704). It opens the same list as the Hide or Show Sources card.
+            // (#669, #704), and for the search order: things seldom changed, kept off the page (#973, #994).
             if pick == nil, store.subscription != nil {
                 ToolbarItem(placement: .primaryAction) {
-                    Button(L10n.text("Edit")) { choosingHidden = true }.accessibilityIdentifier("sources.edit")
+                    // Short titles: iPadOS draws this menu at a fixed width and wrapped "Hide or Show Sources" onto two lines.
+                    Menu {
+                        Button { choosingHidden = true } label: { Label(L10n.text("Hidden Sources"), systemImage: "eye.slash") }
+                            .accessibilityIdentifier("sources.edit.hidden")
+                        Button { arranging = true } label: { Label(L10n.text("Custom Search Order"), systemImage: "arrow.up.arrow.down") }
+                            .accessibilityIdentifier("sources.edit.order")
+                    } label: { Text(L10n.text("Edit")) }
+                    .accessibilityIdentifier("sources.edit")
                 }
             }
         }
@@ -122,26 +156,73 @@ struct SitesView: View {
             if new != .sites { prepared = false }
         }
         .onChange(of: query) { new in
-            let old = previousQuery
-            previousQuery = new
-            if old.isEmpty && !new.isEmpty {
-                foldBeforeSearch = collapsed
-                collapsed = []
-            } else if !old.isEmpty && new.isEmpty, let saved = foldBeforeSearch {
-                collapsed = saved
-                foldBeforeSearch = nil
-            }
+            if new.isEmpty { searchFold = [] }
         }
+    }
+
+    #if os(tvOS)
+    private func shown(_ groups: [SourceGroup]) -> [SourceGroup] { groups }
+    #else
+    /// The group the chips have chosen, or every group's matches while searching.
+    private func shown(_ groups: [SourceGroup]) -> [SourceGroup] {
+        guard query.isEmpty else { return groups }
+        let id = current(groups)
+        return groups.filter { $0.id == id }
+    }
+
+    /// The chosen group, else the one holding the source being replaced, else the first.
+    private func current(_ groups: [SourceGroup]) -> String {
+        if let group, groups.contains(where: { $0.id == group }) { return group }
+        if let picked, let holding = groups.first(where: { $0.sites.contains { $0.key == picked } }) { return holding.id }
+        return groups.first?.id ?? ""
+    }
+
+    private func groupChips(_ groups: [SourceGroup]) -> some View {
+        let subscriptions = groups.filter { if case .subscription = $0.kind { true } else { false } }.map(\.id)
+        return SourceStrip(items: groups.map { .init(id: $0.id, name: L10n.text($0.title), count: $0.sites.count) },
+                           selection: current(groups), select: { id in
+            group = id
+            if pick == nil { UserDefaults.standard.set(id, forKey: Self.groupKey) }
+        }, actions: pick != nil ? nil : { id in
+            // A subscription's chip moves it along, as dragging its header did: earlier subscriptions win duplicates.
+            let index = subscriptions.firstIndex(of: id)
+            return AnyView(Group {
+                if let index, index > 0 {
+                    Button(L10n.text("Move Left")) { store.moveSourceGroup(id, onto: subscriptions[index - 1], includeHidden: false) }
+                }
+                if let index, index < subscriptions.count - 1 {
+                    Button(L10n.text("Move Right")) { store.moveSourceGroup(id, onto: subscriptions[index + 1], includeHidden: false) }
+                }
+            })
+        })
+        .ios16ScrollClipDisabled()
+        .accessibilityIdentifier("sources.groups")
     }
 
     @ViewBuilder
     private func groupHeader(_ group: SourceGroup) -> some View {
-        let open = !collapsed.contains(group.id)
+        if !query.isEmpty {
+            HStack(spacing: 8) {
+                Text(L10n.text(group.title)).font(.headline).lineLimit(1)
+                Text("\(group.sites.count)").font(.subheadline).monospacedDigit().foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+        }
+    }
+    #endif
+
+    #if os(tvOS)
+    @ViewBuilder
+    private func groupHeader(_ group: SourceGroup) -> some View {
+        let open = !folded.contains(group.id)
         let header = Button {
             withAnimation(.easeInOut(duration: 0.3)) {
-                if open { collapsed.insert(group.id) } else { collapsed.remove(group.id) }
+                // A search opens every group for the moment; only the page's own fold is kept.
+                if !query.isEmpty {
+                    if open { searchFold.insert(group.id) } else { searchFold.remove(group.id) }
+                } else if open { collapsed.insert(group.id) } else { collapsed.remove(group.id) }
             }
-            // A search opens every group for the moment; only the page's own fold is kept.
             if pick == nil && query.isEmpty { UserDefaults.standard.set(collapsed.sorted(), forKey: Self.foldKey) }
         } label: {
             HStack(spacing: 8) {
@@ -157,29 +238,43 @@ struct SitesView: View {
         .buttonStyle(.plain)
         .accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("sources.group." + group.id)
-        #if !os(tvOS)
-        if case .subscription = group.kind, query.isEmpty {
-            header
-                .draggable(group.id)
-                .dropDestination(for: String.self) { items, _ in
-                    guard query.isEmpty, let address = items.first else { return false }
-                    store.moveSourceGroup(address, onto: group.id, includeHidden: false)
-                    return true
-                }
-        } else {
-            header
-        }
-        #else
         header
-        #endif
     }
+    #endif
 
     /// The page as the viewer last left it: every group open unless they folded it.
     private func applyDefaultFold() {
         collapsed = pick == nil ? Self.savedFold : []
-        foldBeforeSearch = nil
+        searchFold = []
     }
 }
+
+#if !os(tvOS)
+/// The Sources page's search finds sources by name. Few remember a source's name, so this row takes the words to
+/// Search, which looks through every source for the video (#974).
+private struct SearchVideosRow: View {
+    let query: String
+    @EnvironmentObject private var store: Store
+    var body: some View {
+        Button { store.searchVideos(query) } label: {
+            HStack(spacing: 14) {
+                IconTile(symbol: "magnifyingglass", tint: Brand.accent, size: 40)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L10n.text("Search for \u{201C}%@\u{201D}", query)).font(.headline).foregroundStyle(.primary).lineLimit(1)
+                    Text(L10n.text("Videos from every source")).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contentPanel(cornerRadius: 22)
+        .accessibilityIdentifier("sources.searchVideos")
+    }
+}
+#endif
 
 /// The Sources tab names itself in the sidebar; a page pushed to pick a source says what is being chosen.
 private struct SitesTitle: ViewModifier {
@@ -636,6 +731,12 @@ struct SourceOrderEditor: View {
         if let config = store.subscription { store.sourceOrder.save(sites, origin: config.origin) }
     }
 
+    #if !os(tvOS)
+    private var enabled: Binding<Bool> {
+        Binding { store.sourceOrder.enabled } set: { on in withAnimation(.easeInOut) { store.setCustomSourceOrder(on) } }
+    }
+    #endif
+
     var body: some View {
         #if os(tvOS)
         NavigationStack {
@@ -678,17 +779,34 @@ struct SourceOrderEditor: View {
         #else
         NavigationStack {
             List {
+                // The switch the page's card had, before it moved under Edit (#973, #994).
                 Section {
-                    ForEach(Array(sites.enumerated()), id: \.element.id) { index, site in
-                        SourceOrderRow(site: site, rank: index + 1)
-                            #if os(iOS)
-                            .listRowBackground(Surface())
-                            #endif
-                            .accessibilityIdentifier("sources.order.row." + site.key)
+                    Toggle(isOn: enabled) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(L10n.text("Custom Search Order"))
+                            if !store.sourceOrder.enabled {
+                                Text(L10n.text("Yingxia searches quick, reliable sources first.")).font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
                     }
-                    .onMove { sites.move(fromOffsets: $0, toOffset: $1) }
-                } footer: {
-                    Text(L10n.text("Drag sources to reorder them. Sources at the top are searched first, and their results are listed first."))
+                    .accessibilityIdentifier("sources.order.toggle")
+                    #if os(iOS)
+                    .listRowBackground(Surface())
+                    #endif
+                }
+                if store.sourceOrder.enabled {
+                    Section {
+                        ForEach(Array(sites.enumerated()), id: \.element.id) { index, site in
+                            SourceOrderRow(site: site, rank: index + 1)
+                                #if os(iOS)
+                                .listRowBackground(Surface())
+                                #endif
+                                .accessibilityIdentifier("sources.order.row." + site.key)
+                        }
+                        .onMove { sites.move(fromOffsets: $0, toOffset: $1) }
+                    } footer: {
+                        Text(L10n.text("Drag sources to reorder them. Sources at the top are searched first, and their results are listed first."))
+                    }
                 }
             }
             #if os(iOS)
@@ -703,16 +821,16 @@ struct SourceOrderEditor: View {
                     Button(L10n.text("Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.text("Done")) { save(); dismiss() }.fontWeight(.semibold)
+                    Button(L10n.text("Done")) { if store.sourceOrder.enabled { save() }; dismiss() }.fontWeight(.semibold)
                         .accessibilityIdentifier("sources.order.done")
                 }
                 #if os(iOS)
                 ToolbarItem(placement: .bottomBar) {
-                    Button(L10n.text("Reset")) { withAnimation(.easeInOut) { sites = automatic } }.disabled(isAutomatic)
+                    Button(L10n.text("Reset")) { withAnimation(.easeInOut) { sites = automatic } }.disabled(isAutomatic || !store.sourceOrder.enabled)
                 }
                 #else
                 ToolbarItem(placement: .destructiveAction) {
-                    Button(L10n.text("Reset")) { withAnimation(.easeInOut) { sites = automatic } }.disabled(isAutomatic)
+                    Button(L10n.text("Reset")) { withAnimation(.easeInOut) { sites = automatic } }.disabled(isAutomatic || !store.sourceOrder.enabled)
                 }
                 #endif
             }
@@ -2786,7 +2904,7 @@ struct VideoDetailView: View {
         let resume = resumePosition(for: episode)
         // A downloaded episode plays from the device: no link to fetch, and it works offline.
         if let saved = download(episode), saved.status == .completed {
-            store.playing = DownloadLibrary.shared.channel(for: saved)
+            store.playing = store.savedChannel(saved)
             return
         }
         // A drive line goes to the plugin even without an app sign-in: the plugin asks for its account itself, with

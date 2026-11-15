@@ -5,6 +5,7 @@ import TVCore
 import IOKit.pwr_mgt
 #endif
 
+// iOS 16 compatibility: publish playback and live-line state without Observation.
 @MainActor final class PlaybackSession: ObservableObject {
     /// A queue, so the next episode can wait behind this one and play straight on.
     let player: AVQueuePlayer
@@ -201,6 +202,16 @@ import IOKit.pwr_mgt
     private var switchNotice: String?
     /// Qualities the stream can switch between (Bilibili), and the one chosen; nil is automatic.
     @Published private(set) var qualities: [StreamQuality] = []
+    /// A live channel's lines (#679), the one playing, and those tried since the channel or the line was chosen. Empty
+    /// for a channel of one address.
+    @Published private(set) var lines: [Channel] = []
+    @Published private(set) var line = 0
+    private var triedLines: Set<Int> = []
+    /// When the line playing became ready. One that isn't ready after `lineWait` gives way to the next, as one that
+    /// fails does: a dead IPTV address can keep AVPlayer waiting a minute before it says so.
+    private var lineReadyAt: ContinuousClock.Instant?
+    private var lineWatch: Task<Void, Never>?
+    static let lineWait: Duration = .seconds(15)
     /// The sound tracks of a file that groups none of them (`UngroupedAudio`), for the player's Audio choice, and the
     /// one playing. Empty when AVFoundation offers the choice itself, or there is none.
     @Published private(set) var audioChoices: [UngroupedAudio.Choice] = []
@@ -463,6 +474,7 @@ import IOKit.pwr_mgt
     /// -17223, "cannot be played on this device"). The file opens again with its picture converted to SDR,
     /// and so do the files opened after it. A mirrored or recorded screen refuses HDR the same way, but only
     /// while it lasts: then this file alone converts. Dolby Vision 5 can't convert, so it isn't tried again.
+    /// A live room's stream is the repackaged one just stopped, so the room is asked for its stream again (#941).
     private func retryHDR(after failure: Error?, channel: Channel, url: URL, generation active: UUID) -> Bool {
         // A repackaged HLS stream's HDR variant is refused before any segment loads: -1002 or -12927 (#345).
         let refused = Self.refusedContent(failure) || Remux.isSegmented(url) && Self.refusedVariant(failure)
@@ -476,10 +488,15 @@ import IOKit.pwr_mgt
         detachItem(); observation = nil
         Diagnostics.shared.record(.warning, "player", "hdr refused captured=\(captured); converting to sdr \(failure.map(Self.describe) ?? "-")")
         Remux.stop(url)
+        let room = liveRoom
         preparation = Task { [weak self] in
             guard let self else { return }
+            var channel = channel
             let prepared: Prepared
-            do { prepared = try await self.prepare(channel) }
+            do {
+                if let room { channel = try await LiveCatalog.resolve(room).channel }
+                prepared = try await self.prepare(channel)
+            }
             catch {
                 guard self.generation == active, !Task.isCancelled else { return }
                 self.error = error.localizedDescription; self.loading = false; return
@@ -487,6 +504,37 @@ import IOKit.pwr_mgt
             guard self.generation == active, !Task.isCancelled, !prepared.matroska else { return Self.stopAdapter(prepared) }
             self.configure(channel, url: prepared.url, generation: active)
             self.automatic = prepared.url
+        }
+        return true
+    }
+
+    /// MPEG-TS HLS whose sound AVPlayer can't decode, the MPEG-1 Layer II of many IPTV channels, fails at once with
+    /// 'fmt?'. It opens again repackaged (`HLSRemux`): the picture copied, the sound converted to AAC. When that doesn't
+    /// work either, the channel's next line, or the error.
+    private func retryConvertingAudio(after failure: Error?, channel: Channel, url: URL, generation active: UUID) -> Bool {
+        guard Self.unsupportedFormat(failure), !Remux.isRemuxed(url), ["http", "https"].contains(url.scheme) else { return false }
+        detachItem(); observation = nil
+        Diagnostics.shared.record(.warning, "player", "format refused; repackaging host=\(url.host() ?? "-") \(Self.describe(failure!))")
+        note(L10n.text("Repackaging the video for this device"))
+        loading = true
+        preparation = Task { [weak self] in
+            var remuxed: URL?
+            do { remuxed = try await HLSRemux.open(url, headers: channel.headers) }
+            catch { if !Task.isCancelled { Diagnostics.shared.record(.info, "player", "hls not repackaged \(Self.describe(error))") } }
+            guard let self, self.generation == active, !Task.isCancelled else {
+                if let remuxed { Remux.stop(remuxed) }
+                return
+            }
+            guard let remuxed else {
+                if self.tryNextLine(after: failure) { return }
+                self.loading = false
+                self.errorSymbol = "play.slash.fill"
+                self.error = failure?.localizedDescription ?? L10n.text("This media cannot be played. Try another channel or source.")
+                return
+            }
+            self.configure(channel, url: remuxed, generation: active)
+            self.externalSubtitles.playing(remuxed)
+            self.automatic = remuxed
         }
         return true
     }
@@ -654,6 +702,34 @@ import IOKit.pwr_mgt
         Self.current = self
         // The queue has already moved on to this episode by itself.
         if let advanced, advanced == channel { self.advanced = nil; return }
+        lines = channel.alternates.isEmpty ? [] : channel.lines
+        line = 0; triedLines = [0]
+        open(channel)
+    }
+
+    /// Plays line `index` of the live channel, as the viewer chose: the others are there to fall back on again.
+    func choose(line index: Int) {
+        guard lines.indices.contains(index), index != line else { return }
+        Diagnostics.shared.record(.info, "player", "line \(index + 1)/\(lines.count) chosen")
+        line = index; triedLines = [index]
+        open(lines[index])
+    }
+
+    /// The channel's next line not tried since it was chosen, when this one failed or hasn't started (#679); false when
+    /// there is none left. A line that played a while before it dropped leaves every line to try again.
+    private func tryNextLine(after failure: Error?) -> Bool {
+        guard lines.count > 1 else { return false }
+        if let readyAt = lineReadyAt, readyAt.duration(to: .now) > .seconds(60) { triedLines = [line] }
+        guard let next = (1..<lines.count).map({ (line + $0) % lines.count }).first(where: { !triedLines.contains($0) }) else { return false }
+        Diagnostics.shared.record(.warning, "player", "line \(line + 1)/\(lines.count) \(failure.map(Self.describe) ?? "not ready"); trying line \(next + 1)")
+        let failed = line
+        line = next; triedLines.insert(next)
+        open(lines[next])
+        note(L10n.text("Line %@ didn't play. Trying line %@.", "\(failed + 1)", "\(next + 1)"))
+        return true
+    }
+
+    private func open(_ channel: Channel) {
         savedDownload = channel.url.scheme == DownloadLibrary.scheme
         stop(); error = nil; errorSymbol = "play.slash.fill"; loading = true; showsPicture = false; sourceDanmaku = []; qualities = []; quality = nil; switchNotice = nil
         begin(channel)
@@ -664,6 +740,14 @@ import IOKit.pwr_mgt
                                     danmaku: UserDefaults.standard.object(forKey: DanmakuPreference.key) == nil || UserDefaults.standard.bool(forKey: DanmakuPreference.key),
                                     sharper: UserDefaults.standard.bool(forKey: VideoEnhancement.upscaleKey))
         let activeGeneration = generation
+        lineReadyAt = nil
+        if lines.count > 1 {
+            lineWatch = Task { [weak self] in
+                try? await Task.sleep(for: Self.lineWait)
+                guard let self, !Task.isCancelled, self.generation == activeGeneration, self.lineReadyAt == nil, self.error == nil else { return }
+                _ = self.tryNextLine(after: nil)
+            }
+        }
         Diagnostics.shared.record(.info, "player", "start name=\(channel.name) group=\(channel.group) url=\(channel.url.absoluteString) headers=\(channel.headers.keys.sorted().joined(separator: ","))")
         preparation = Task { [weak self] in
             guard let self else { return }
@@ -687,6 +771,7 @@ import IOKit.pwr_mgt
             do { prepared = try await self.prepare(channel) }
             catch {
                 guard self.generation == activeGeneration, !Task.isCancelled else { return }
+                if self.tryNextLine(after: error) { return }
                 self.error = error.localizedDescription; self.loading = false; return
             }
             guard self.generation == activeGeneration, !Task.isCancelled else { return Self.stopAdapter(prepared) }
@@ -821,11 +906,11 @@ import IOKit.pwr_mgt
     /// A file AVPlayer reads by itself and `Remux` can read too: not HLS, and not already repackaged.
     private static func repackagable(_ url: URL) -> Bool {
         !Remux.isRemuxed(url) && url.pathExtension.lowercased() != "m3u8"
-            && ["http", "https", "file", CloudStreams.scheme].contains(url.scheme)
+            && ["http", "https", "file", CloudStreams.scheme, CENCStreams.scheme].contains(url.scheme)
     }
 
-    /// A file whose picture AVPlayer can't decode plays its sound alone: HEVC that an MP4 tags `hev1`, or VP9
-    /// (#215). It opens again repackaged as HLS (`Remux.showsPicture`) and resumes where it was asked to. When it
+    /// A file whose picture AVPlayer can't decode plays its sound alone: HEVC that an MP4 tags `hev1`, VP9 (#215), or
+    /// Hongguo's ByteVC2 (#957, read clear through its decrypting stream). It opens again repackaged as HLS (`Remux.showsPicture`) and resumes where it was asked to. When it
     /// can't be repackaged, the sound plays on as before.
     private func repackage(_ item: AVPlayerItem, channel: Channel, url: URL, generation active: UUID) {
         player.pause(); loading = true
@@ -834,6 +919,7 @@ import IOKit.pwr_mgt
         preparation = Task { [weak self] in
             let source: RemuxSource?
             if url.scheme == CloudStreams.scheme { source = await CloudStreams.remuxSource(for: url) }
+            else if url.scheme == CENCStreams.scheme { source = await CENCStreams.remuxSource(for: url) }
             else if url.isFileURL { source = try? Remux.fileSource(url) }
             else {
                 do { source = try await Remux.httpSource(url, headers: channel.headers) }
@@ -950,6 +1036,7 @@ import IOKit.pwr_mgt
                 self.hasTimeline = timeline
                 if status == .readyToPlay {
                     if self.isLive { self.liveReadyAt = .now }
+                    self.lineReadyAt = .now; self.lineWatch?.cancel(); self.lineWatch = nil
                     if UngroupedAudio.playOne(item) { Diagnostics.shared.record(.info, "player", "ungrouped audio tracks; playing the first") }
                     Task { [weak self] in
                         let choices = await UngroupedAudio.choices(item)
@@ -980,10 +1067,12 @@ import IOKit.pwr_mgt
                 if status == .failed {
                     if self.retryRange(after: failure, channel: channel, url: url, generation: activeGeneration) { return }
                     if self.retryHDR(after: failure, channel: channel, url: url, generation: activeGeneration) { return }
+                    if self.retryConvertingAudio(after: failure, channel: channel, url: url, generation: activeGeneration) { return }
                     if self.recoverLoopback(Self.urlErrorCode(failure), channel: channel, url: url, generation: activeGeneration) { return }
                     if self.reopenedAfterDrop, self.resumeAfterDrop(failure, channel: channel, url: url, generation: activeGeneration) { return }
                     Diagnostics.shared.record(.error, "player", "failed host=\(self.transfer.host ?? channel.url.host() ?? "-") \(self.transfer.failure.map { "upstream=\($0) " } ?? "")\(detail) \(self.failureContext(channel, url: url, item: item))")
                     if self.retryLive(after: failure) { return }
+                    if self.tryNextLine(after: failure) { return }
                     // A refused link is usually an expired one: say so in plain words rather than the system's.
                     let expired = refused || [401, 403, 404, 410].contains(self.transfer.httpStatus ?? 0)
                     self.loading = false
@@ -1003,6 +1092,7 @@ import IOKit.pwr_mgt
                 if self.resumeAfterDrop(failure, channel: channel, url: url, generation: activeGeneration) { return }
                 Diagnostics.shared.record(.error, "player", "interrupted host=\(self.transfer.host ?? channel.url.host() ?? "-") at=\(Int(self.player.currentTime().seconds.isFinite ? self.player.currentTime().seconds : -1))s \(failure.map(Self.describe) ?? "-") \(self.failureContext(channel, url: url, item: item))")
                 if self.retryLive(after: failure) { return }
+                if self.tryNextLine(after: failure) { return }
                 self.error = message ?? L10n.text("Playback was interrupted."); self.loading = false
             }
         }
@@ -1204,6 +1294,7 @@ import IOKit.pwr_mgt
         generation = UUID()
         chat?.stop(); chat = nil
         preparation?.cancel(); preparation = nil
+        lineWatch?.cancel(); lineWatch = nil
         sampler?.cancel(); sampler = nil
         transfer = Transfer(); steps = []
         #if os(macOS)
@@ -1687,6 +1778,16 @@ extension PlaybackSession {
         var current = error as NSError?
         while let error = current {
             if error.domain == "CoreMediaErrorDomain", [-1002, -12927].contains(error.code) { return true }
+            current = error.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        return false
+    }
+
+    /// AVPlayer can't decode what the stream carries: CoreMedia's 'fmt?' (1718449215), as for MP2 sound in MPEG-TS.
+    nonisolated static func unsupportedFormat(_ error: Error?) -> Bool {
+        var current = error as NSError?
+        while let error = current {
+            if error.domain == "CoreMediaErrorDomain", error.code == 1718449215 { return true }
             current = error.userInfo[NSUnderlyingErrorKey] as? NSError
         }
         return false

@@ -95,7 +95,7 @@ struct DownloadsView: View {
         let label = DownloadShowCard(show: show, details: DownloadArtwork.shared.details(for: show))
         Group {
             if show.items.count == 1, let item = show.items.first {
-                Button { store.playing = library.channel(for: item) } label: { label }
+                Button { store.playing = store.savedChannel(item) } label: { label }
                     .accessibilityLabel(L10n.text("Play %@", show.title))
             } else {
                 RouteLink { DownloadShowPage(id: show.id) } label: { label }
@@ -877,7 +877,7 @@ struct DownloadShowPage: View {
     private func actions(_ show: DownloadShow) -> some View {
         HStack(spacing: 10) {
             if let first = show.items.first {
-                Button { store.playing = library.channel(for: first) } label: {
+                Button { store.playing = store.savedChannel(first) } label: {
                     Label(L10n.text("Play"), systemImage: "play.fill").lineLimit(1).fixedSize()
                 }
                 .controlButton(prominent: true)
@@ -914,7 +914,7 @@ struct DownloadShowPage: View {
 
     private func tile(_ item: DownloadItem, info: TMDBMatch.EpisodeInfo?, backdrops: [URL]) -> some View {
         let detail = [item.quality, DownloadFormat.size(item.size)].compactMap { $0 }.joined(separator: " · ")
-        return Button { store.playing = library.channel(for: item) } label: {
+        return Button { store.playing = store.savedChannel(item) } label: {
             TMDBEpisodeTile(name: EpisodeRow.title(item.episode), info: info, detail: detail, width: nil, backdrops: backdrops)
         }
         .cardButton()
@@ -1334,10 +1334,19 @@ extension View {
         return false
     }
     /// The continued-processing task ended: the queue emptied, or the system (or the person, from its progress)
-    /// stopped it. Off screen, stop as the grace period's end would.
+    /// stopped it. Off screen, stop as the grace period's end would; the downloads carry on when the app returns.
+    /// Stopped while the app is in front (or just under Notification Center), it can only be the person pressing
+    /// Stop: pause everything, as Pause All does, so the next download or the return to the app doesn't start
+    /// them again (#947).
     static func continuedEnded(expired: Bool) {
-        guard UIApplication.shared.applicationState != .active else { return }
-        if expired { suspend() }
+        let state = UIApplication.shared.applicationState
+        if expired, state != .background {
+            Diagnostics.shared.record(.info, "download", "continued task stopped in front: pausing downloads")
+            DownloadLibrary.shared.pauseAll()
+            MusicDownloadLibrary.shared.pauseAll()
+        }
+        guard state != .active else { return }
+        if expired, state == .background { suspend() }
         end()
     }
     #endif

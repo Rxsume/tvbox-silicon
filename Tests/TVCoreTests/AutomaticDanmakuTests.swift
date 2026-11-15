@@ -263,3 +263,40 @@ private actor DanmakuTestTransport {
     #expect(try await tencent.resolve(automaticContext(episode: "第2集")).source == "Dandanplay")
     #expect(await transport.count("api.dandanplay.net/api/v2/search/anime") == searches)
 }
+
+/// #953: a source that tags the edition ("小城良方（臻彩）") still finds the show on iQIYI, while a season or other
+/// note in brackets stays part of the title.
+@Test func officialMatchingLooksPastEditionNotesInTheTitle() throws {
+    #expect(CatalogDanmakuMatcher.withoutReleaseNotes("小城良方（臻彩）") == "小城良方")
+    #expect(CatalogDanmakuMatcher.withoutReleaseNotes("三体【4K 国语】(HDR)") == "三体")
+    #expect(CatalogDanmakuMatcher.withoutReleaseNotes("琅琊榜 [1080P 中字]") == "琅琊榜")
+    for kept in ["奔跑吧（第二季）", "测试剧(2023)", "（臻彩）", "名侦探柯南（剧场版）", "测试剧"] {
+        #expect(CatalogDanmakuMatcher.withoutReleaseNotes(kept) == kept)
+    }
+    #expect(CatalogDanmakuMatcher.titleMetadata("测试剧(2023)（蓝光）").title == "测试剧")
+    #expect(CatalogDanmakuMatcher.titleMetadata("测试剧(2023)（蓝光）").year == "2023")
+
+    var context = automaticContext()
+    context = PlaybackHistoryContext(origin: context.origin, sourceKey: context.sourceKey, sourceName: context.sourceName, videoID: context.videoID,
+        videoName: "测试剧（臻彩）", episodeID: "第1集", episodeName: "第1集", episodeFlag: "line")
+    let album: [String: Any] = ["title": "测试剧", "qipuId": "1", "year": ["value": "2025"],
+        "videos": [["number": "1", "title": "第1集", "pageUrl": "https://www.iqiyi.com/v_a.html"]]]
+    let mapping = try #require(OfficialDanmakuCatalog.parseIQiyi(["data": ["templates": [["albumInfo": album]]]], context: context))
+    #expect(mapping.track(for: context)?.page?.absoluteString == "https://www.iqiyi.com/v_a.html")
+}
+
+@Test func automaticMatchingOffFollowsAShowPickedByHandOnTheOfficialServer() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let transport = DanmakuTestTransport("dandan"), cache = MediaCache(root: root)
+    let resolver = DanmakuResolver(cache: cache, http: DanmakuHTTP { try await transport.send($0) },
+        dandanServer: "https://api.dandanplay.net", dmkuServer: URL(string: "https://dmku.test")!, dandanCredentials: automaticCredentials)
+    let context = automaticContext()
+    resolver.remember(DanmakuMapping(provider: "dandan", title: context.videoName, year: context.year, tracks: [
+        DanmakuTrack(number: 1, title: "第1集", id: "123001"), DanmakuTrack(number: 2, title: "第2集", id: "123002")
+    ]), for: context, ticket: cache.ticket(), picked: true)
+    #expect(resolver.hasPick(for: automaticContext(episode: "第2集")))
+    #expect(try await resolver.resolve(automaticContext(episode: "第2集"), savedOnly: true).source == "Dandanplay")
+    #expect(await transport.count("api.dandanplay.net/api/v2/search/anime") == 0)
+    #expect(await transport.count("dmku.test") == 0)
+}

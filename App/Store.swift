@@ -51,6 +51,28 @@ import TVCore
     }
     /// Set while a listening source's episode goes to the video player on purpose.
     private var playsAsVideo = false
+    /// The channels the live channel playing was picked from, in order (its playlist, or the favorites): the player's
+    /// Previous and Next Channel and its channel list go through them (#1010).
+    @Published var liveLineup: LiveLineup?
+    /// The program guide of the playlist `liveLineup` is (#802).
+    @Published private(set) var liveGuide: LiveGuide?
+    /// Plays a live channel picked from `lineup`, with its playlist's guide.
+    func watch(_ channel: Channel, in lineup: LiveLineup, guide: LiveGuide? = nil) {
+        liveLineup = lineup
+        liveGuide = guide
+        playing = channel
+    }
+    /// The guide of the list the channel was picked from.
+    func guide(for channel: Channel) -> LiveGuide? { lineup(for: channel) != nil ? liveGuide : nil }
+    /// Program guide addresses the viewer typed in for live playlists, by playlist address (#802).
+    @Published var guideAddresses: [String: String] {
+        didSet { if persistsChanges { defaults.set(guideAddresses, forKey: "liveGuideAddresses") } }
+    }
+    /// The list the channel was picked from, when it holds others to switch to.
+    func lineup(for channel: Channel) -> LiveLineup? {
+        guard let lineup = liveLineup, lineup.channels.count > 1, lineup.position(of: channel) != nil else { return nil }
+        return lineup
+    }
     /// The videos whose iPhone watch page is on screen (`PlaybackHistoryContext.id`): their episodes play at the top
     /// of the page instead of in the full-screen player.
     @Published var watchPageScopes: Set<String> = []
@@ -136,6 +158,7 @@ import TVCore
         cloudSync = defaults === UserDefaults.standard && !defaults.bool(forKey: "qaIsolatedData") ? CloudSync() : nil
         favorites = Favorites(defaults: defaults)
         autoPlayNext = defaults.object(forKey: "autoPlayNextEpisode") == nil || defaults.bool(forKey: "autoPlayNextEpisode")
+        guideAddresses = defaults.dictionary(forKey: "liveGuideAddresses") as? [String: String] ?? [:]
         let saved = defaults.data(forKey: "subscriptions").flatMap { try? JSONDecoder().decode([SubscriptionEntry].self, from: $0) }
         var entries = saved ?? [], copies: [String: Subscription] = [:]
         for entry in entries {
@@ -819,6 +842,13 @@ import TVCore
             return
         }
         let site = client.site
+        // An episode saved on this device plays from it, where it stopped, with no request to the source (#960).
+        let savedEpisode = Episode(id: entry.context.episodeID, name: entry.context.episodeName, address: "", flag: entry.context.episodeFlag)
+        if !entry.completed, let saved = DownloadLibrary.shared.item(for: DownloadSource(site: site, videoID: entry.context.videoID, episode: savedEpisode)),
+           saved.status == .completed {
+            playing = savedChannel(saved)
+            return
+        }
         let previousPlayback = playing
         do {
             // Plugin/API sources resolve an episode again. Direct-file APIs must refresh
@@ -917,6 +947,15 @@ extension Store {
                                                  subtitles: folder.subtitles) } ?? channel
     }
 
+    /// A saved episode, under the history entry it has online: its progress and Continue Watching are the same
+    /// whether it streams or plays from the device, and it opens where it stopped (#960).
+    func savedChannel(_ item: DownloadItem) -> Channel {
+        guard var context = item.historyContext(in: subscription) else { return DownloadLibrary.shared.channel(for: item) }
+        let entry = playbackHistory.entries.first { $0.id == context.id }
+        if context.year == nil { context.year = entry?.context.year }
+        return DownloadLibrary.shared.channel(for: item, context: context, resumePosition: entry?.resumePosition(for: item.source.episode))
+    }
+
     func nextFile(after channel: Channel) -> Channel? { file(1, from: channel) }
     func previousFile(before channel: Channel) -> Channel? { file(-1, from: channel) }
 
@@ -924,8 +963,7 @@ extension Store {
     /// episode steps through the others saved from its show (#835, #820).
     private func file(_ offset: Int, from channel: Channel) -> Channel? {
         if channel.url.scheme == DownloadLibrary.scheme {
-            let library = DownloadLibrary.shared
-            return library.neighbor(of: channel.url, offset: offset).map(library.channel(for:))
+            return DownloadLibrary.shared.neighbor(of: channel.url, offset: offset).map(savedChannel)
         }
         guard let context = channel.historyContext, context.sourceKey == CloudFiles.sourceKey, let folder = filesFolder,
               folder.drive.key == context.episodeFlag, folder.id == context.videoID,

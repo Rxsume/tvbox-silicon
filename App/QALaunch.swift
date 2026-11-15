@@ -61,7 +61,8 @@ enum QALaunch {
         guard section != nil || page != nil || UserDefaults.standard.string(forKey: "qaPlay") != nil
                 || UserDefaults.standard.string(forKey: "qaDownload") != nil
                 || UserDefaults.standard.string(forKey: "qaPlayLive") != nil
-                || UserDefaults.standard.string(forKey: "qaPlayURL") != nil else { return }
+                || UserDefaults.standard.string(forKey: "qaPlayURL") != nil
+                || UserDefaults.standard.string(forKey: "qaPlayChannel") != nil else { return }
         if UserDefaults.standard.bool(forKey: "qaResetHistory") { store.playbackHistory.clear() }
         #if os(macOS)
         // `-qaWindowSnapshot <png> [-qaWindowSize 1230x830] [-qaSnapshotDelay 20]`: draws the main window into a PNG
@@ -174,6 +175,22 @@ enum QALaunch {
                 .map { ExternalSubtitle(name: $0.lastPathComponent, url: $0) }
             store.playing = Channel(name: url.lastPathComponent, group: "QA", url: url, resumePosition: resume > 0 ? resume : nil, subtitles: subtitles)
         }
+        // `-qaPlayChannel <index>` plays that channel of the subscription's first live playlist, picked from its list as
+        // the Live tab does: Previous and Next Channel and the channel list go through the playlist (#1010).
+        if let index = UserDefaults.standard.string(forKey: "qaPlayChannel").flatMap(Int.init),
+           let source = store.liveSources.first(where: { !$0.isBuiltIn }) {
+            do {
+                let playlist = try await HTTPClient().playlist(source)
+                let channels = playlist.channels
+                let guide = LiveGuide.address(for: source, playlist: playlist.guide, in: store).map(LiveGuide.init)
+                if let guide { Task { await guide.load(channels) } }
+                if channels.indices.contains(index) {
+                    store.watch(channels[index], in: LiveLineup(title: source.name, channels: channels), guide: guide)
+                }
+            } catch {
+                Diagnostics.shared.record(.warning, "qa", "playlist not loaded: \(error.localizedDescription)")
+            }
+        }
         // `-qaPlay <site key>:<video id>[:<episode index>]` opens that source's video in the player.
         if let target = UserDefaults.standard.string(forKey: "qaPlay"), let config = store.subscription {
             let parts = target.split(separator: ":", maxSplits: 2).map(String.init)
@@ -275,6 +292,13 @@ enum QALaunch {
         folder == drive.root ? drive.name : (folder as NSString).lastPathComponent
     }
 
+    /// `-qaPage app-icon`: Settings › App Icon (iPhone, iPad and Mac).
+    @MainActor @ViewBuilder private static var appIconPage: some View {
+        #if !os(tvOS)
+        AppIconSettingsView()
+        #endif
+    }
+
     /// The pushed page to show as the section's root, so detail screens can be captured without taps.
     @MainActor @ViewBuilder static func page(for section: AppSection, store: Store) -> some View {
         // Pages that need no subscription, so an App Store build (`-qaAppStore 1`) can show them before one is added.
@@ -286,6 +310,8 @@ enum QALaunch {
             DanmakuSettingsView()
         } else if section == self.section, page == "book-sources" {
             NovelSourcesView()
+        } else if section == self.section, page == "app-icon" {
+            appIconPage
         } else if section == self.section, let page, let config = store.subscription {
             let parts = page.split(separator: ":", maxSplits: 2).map(String.init)
             switch parts.first {
@@ -434,7 +460,7 @@ enum QALaunch {
 
     static func overrides(_ section: AppSection) -> Bool {
         guard section == self.section, let page else { return false }
-        return ["site", "setting", "detail", "open-detail", "channels", "runtime", "logs", "feedback", "telegram", "cache", "playback", "privacy", "licenses", "cloud-login", "cloud-accounts", "subtitle-style", "danmaku-style", "book-sources", "drive-sign-in", "bilibili-account", "douyin-account", "douyin-login", "douyin-handoff", "bilibili-live", "live", "danmaku-list", "danmaku-settings", "web-sign-in", "plugin-sign-in", "catpaw-sign-in", "folder", "alist-add", "up", "comments", "chapters", "live-plugins", "live-plugin", "live-plugin-sign-in", "live-plugin-qr"].contains(page.split(separator: ":").first.map(String.init) ?? "")
+        return ["site", "setting", "detail", "open-detail", "channels", "runtime", "logs", "feedback", "telegram", "cache", "playback", "privacy", "licenses", "app-icon", "cloud-login", "cloud-accounts", "subtitle-style", "danmaku-style", "book-sources", "drive-sign-in", "bilibili-account", "douyin-account", "douyin-login", "douyin-handoff", "bilibili-live", "live", "danmaku-list", "danmaku-settings", "web-sign-in", "plugin-sign-in", "catpaw-sign-in", "folder", "alist-add", "up", "comments", "chapters", "live-plugins", "live-plugin", "live-plugin-sign-in", "live-plugin-qr"].contains(page.split(separator: ":").first.map(String.init) ?? "")
     }
 }
 

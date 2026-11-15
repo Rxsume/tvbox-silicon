@@ -808,6 +808,7 @@
 "The channel's music account is blocked for now." = "このチャンネルの音楽アカウントは現在制限されています。";
 "The channel needs a valid key." = "このチャンネルには有効なキーが必要です。";
 "The channel took too long to answer." = "このチャンネルの応答が遅すぎます。";
+"None of your subscriptions lists music channels. Add one that does, such as the recommended sources, to play music." = "追加したサブスクリプションには音楽チャンネルがありません。おすすめのソースなど、音楽チャンネルを含むサブスクリプションを追加してください。";
 "The channel sent an answer the app can't read." = "このチャンネルの応答を読み取れません。";
 "This device can't play the channel's audio format." = "このデバイスはこのチャンネルの音声形式を再生できません。";
 "No lossless version is available right now." = "今は利用できるロスレス版がありません。";
@@ -1972,3 +1973,43 @@
 "Added" = "追加済み";
 "Adding…" = "追加中…";
 "The file is larger than %lld MB." = "ファイルが %lld MB を超えています。";
+"Previous Channel" = "前のチャンネル";
+"Next Channel" = "次のチャンネル";
+"Channel List" = "チャンネル一覧";
+"Line %@" = "ライン %@";
+"Line %@ didn't play. Trying line %@." = "ライン %1$@ を再生できません。ライン %2$@ を試しています。";
+"Search Time Limit" = "検索の制限時間";
+"%@ seconds" = "%@ 秒";
+"How long Search Online waits for the sources. Results show as each source answers, so a longer limit only waits longer for slow ones." = "オンライン検索が各ソースを待つ時間です。結果はソースが応答するたびに表示されるため、長くしても遅いソースを長く待つだけです。";
+
+/* Sources page (#973, #974, #994) */
+"Search for “%@”" = "「%@」を検索";
+"Videos from every source" = "すべてのソースから動画を探す";
+"Move Left" = "左へ移動";
+"Move Right" = "右へ移動";
+/* Live program guide (#802) */
+"Program Guide" = "番組表";
+"Now On" = "放送中";
+"Coming Up" = "この後";
+"An XMLTV file (.xml or .xml.gz), or an address with {name} for each channel. Leave it empty to use the playlist's own guide." = "XMLTV ファイル（.xml または .xml.gz）、またはチャンネルごとの {name} を含むアドレス。空欄にするとプレイリストの番組表を使います。";
+
+/* Settings › App Icon */
+"App Icon" = "アプリアイコン";
+"Aurora" = "オーロラ";
+"Classic" = "クラシック";
+"Porcelain" = "ポーセリン";
+"Obsidian" = "オブシディアン";
+"Azure" = "アズール";
+"Daybreak" = "夜明け";
+"Iris" = "アイリス";
+"Lagoon" = "ラグーン";
+"Rose Quartz" = "ローズクォーツ";
+"Citrus" = "シトラス";
+"Cosmic" = "コズミック";
+"Couldn't change the app icon: %@" = "アプリアイコンを変更できませんでした：%@";
+"Couldn't open that picture." = "その画像を開けませんでした。";
+"A square picture works best. One with see-through corners, such as an icon made for the Mac, shows as it is." = "正方形の画像がおすすめです。Mac 用アイコンのように四隅が透明な画像は、そのまま表示されます。";
+"Choose Picture…" = "画像を選択…";
+"Remove Custom Picture" = "カスタム画像を削除";
+"The Dock shows the icon you pick while Yingxia is open. Elsewhere, such as in Finder, the app keeps Aurora." = "映匣を開いている間は、選んだアイコンが Dock に表示されます。Finder などでは「オーロラ」のままです。";
+"The icon on your Home Screen. The system confirms the change with a short message." = "ホーム画面のアイコンです。変更すると、システムが短いメッセージで知らせます。";

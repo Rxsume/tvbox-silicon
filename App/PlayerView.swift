@@ -11,7 +11,8 @@ struct PlaybackView: View {
     #endif
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: Store
-    @State private var session = PlaybackSession()
+    // iOS 16 compatibility: own and observe the Combine-backed playback session.
+    @StateObject private var session = PlaybackSession()
     @State private var showsChrome = true
     @State private var hideTask: Task<Void, Never>?
     #if os(iOS)
@@ -23,13 +24,14 @@ struct PlaybackView: View {
     @State private var showsDanmakuList = false
     @State private var showsDanmakuSettings = false
     @State private var showsEpisodes = false
+    @State private var showsChannels = false
     @AppStorage(VideoEnhancement.upscaleKey) private var upscalesVideo = false
     @AppStorage(VideoEnhancement.smoothKey) private var smoothsVideo = false
     #if os(tvOS)
     @AppStorage(PlaybackInfo.key) private var showsPlaybackInfo = false
     @State private var playbackSpeed: Float = 1
     @State private var fillsScreen = false
-    @State private var transportBar = TransportBarVisibility()
+    @StateObject private var transportBar = TransportBarVisibility()
     #endif
     #if os(macOS)
     @State private var importsSubtitleFile = false
@@ -69,7 +71,9 @@ struct PlaybackView: View {
                                  skipping: session.canSkip ? session.skipSettings : nil, setSkipping: { session.applySkipSettings($0) },
                                  markSkip: { session.markSkip(intro: $0) },
                                  chapters: session.chapters,
-                                 exitWhileWaiting: session.showsPicture ? nil : { dismiss() }, episodes: episodeChoices, transportBar: transportBar,
+                                 exitWhileWaiting: session.showsPicture ? nil : { dismiss() }, episodes: episodeChoices, channels: channelChoices,
+                                 lines: session.lines.indices.map { L10n.text("Line %@", "\($0 + 1)") }, line: session.line,
+                                 chooseLine: { session.choose(line: $0) }, transportBar: transportBar,
                                  titleRow: AnyView(TVPlayerTitleRow(channel: channel, session: session, transportBar: transportBar).environmentObject(store))).ignoresSafeArea()
                     .onAppear { playbackSpeed = session.player.defaultRate }
             }
@@ -202,7 +206,7 @@ struct PlaybackView: View {
 
     #if os(tvOS)
     private func episodeAction(_ step: PlayerStep?) -> EpisodeAction? {
-        step.map { EpisodeAction(name: $0.name, busy: $0.busy, play: $0.go) }
+        step.map { EpisodeAction(name: $0.name, busy: $0.busy, channel: $0.channel, play: $0.go) }
     }
 
     /// The video's lines and episodes for the player's Episodes menu and info-panel tab: nil for one episode.
@@ -220,6 +224,15 @@ struct PlaybackView: View {
             select: { store.selectEpisode($0, from: channel) },
             panel: { AnyView(TVPlayerEpisodesPanel(channel: channel).environmentObject(store)) })
     }
+
+    /// The list the live channel was picked from, for the info panel's Channel List tab (#1010): nil when there is none.
+    private var channelChoices: ChannelChoices? {
+        guard let lineup = store.lineup(for: channel) else { return nil }
+        let store = store, channel = channel
+        return ChannelChoices(key: "\(lineup.title):\(lineup.channels.count):\(channel.id)") {
+            AnyView(TVPlayerChannelsPanel(channel: channel).environmentObject(store))
+        }
+    }
     #endif
 
     #if !os(tvOS)
@@ -234,6 +247,7 @@ struct PlaybackView: View {
             .frame(maxHeight: .infinity, alignment: .top)
         .subtitleImport(files: $importsSubtitleFile, address: $asksSubtitleAddress, search: $searchesSubtitles, subtitles: session.externalSubtitles)
         .playerEpisodesSheet(isPresented: $showsEpisodes, channel: channel)
+        .playerChannelsSheet(isPresented: $showsChannels, channel: channel, session: session)
         .sheet(isPresented: $showsDanmakuList) {
             DanmakuListView(player: session.player, comments: session.danmaku) { showsDanmakuList = false }
                 .danmakuListPresentation()
@@ -257,7 +271,7 @@ struct PlaybackView: View {
                 }
                 .chromeButton()
                 .disabled(previous.busy)
-                .accessibilityLabel(L10n.text("Previous Episode")).help(previous.name)
+                .accessibilityLabel(previous.title(back: true)).help(previous.name)
             }
             if let next = store.step(back: false, from: channel, session: session) {
                 Button { next.go() } label: {
@@ -265,10 +279,14 @@ struct PlaybackView: View {
                 }
                 .chromeButton()
                 .disabled(next.busy)
-                .accessibilityLabel(L10n.text("Next Episode")).help(next.name)
+                .accessibilityLabel(next.title(back: false)).help(next.name)
             }
             PlayerEpisodesButton(channel: channel, isPresented: $showsEpisodes) {
                 Image(systemName: PlayerEpisodesSheet.symbol).font(.headline).frame(width: 22, height: 22)
+            }
+            .chromeButton()
+            PlayerChannelsButton(channel: channel, session: session, isPresented: $showsChannels) {
+                Image(systemName: PlayerChannelsSheet.symbol).font(.headline).frame(width: 22, height: 22)
             }
             .chromeButton()
             CatalogPlaybackActions(channel: channel, session: session)
@@ -707,6 +725,8 @@ private final class TitleSafePlayerController: AVPlayerViewController {
 struct EpisodeAction {
     let name: String
     let busy: Bool
+    /// A live channel of the list it was picked from (#1010).
+    var channel = false
     let play: @MainActor () -> Void
 }
 
@@ -719,6 +739,13 @@ struct EpisodeChoices {
     let current: Episode.ID?
     let busy: Bool
     let select: @MainActor (Episode) -> Void
+    let panel: @MainActor () -> AnyView
+}
+
+/// The list a live channel was picked from, as the info panel's Channel List tab (#1010). `key` changes when the
+/// tab is made again.
+struct ChannelChoices {
+    let key: String
     let panel: @MainActor () -> AnyView
 }
 
@@ -776,6 +803,11 @@ private struct NativePlayerView: UIViewControllerRepresentable {
     /// once the transport bar shows (an episode button takes it), and AVKit then keeps the press to itself.
     var exitWhileWaiting: (() -> Void)? = nil
     var episodes: EpisodeChoices? = nil
+    var channels: ChannelChoices? = nil
+    /// A live channel's lines, for the Lines menu (#679), and the one playing.
+    var lines: [String] = []
+    var line = 0
+    var chooseLine: @MainActor (Int) -> Void = { _ in }
     /// Told when AVKit shows or hides the transport bar, for `titleRow`.
     var transportBar: TransportBarVisibility? = nil
     /// The title's logo and the video's tags, over the transport bar while it shows (#758).
@@ -840,10 +872,17 @@ private struct NativePlayerView: UIViewControllerRepresentable {
         context.coordinator.exit = exitWhileWaiting
         context.coordinator.back.isEnabled = exitWhileWaiting != nil
         // The episodes, the chapters and the comment list are tabs in the info panel (swipe down), beside the video's own info.
-        let listed = "\(revision):\(comments.count):\(chapters.map(\.start)):\(episodes?.key ?? "")"
+        let listed = "\(revision):\(comments.count):\(chapters.map(\.start)):\(episodes?.key ?? ""):\(channels?.key ?? "")"
         if context.coordinator.listed != listed {
             context.coordinator.listed = listed
             var tabs: [UIViewController] = []
+            if let channels {
+                let panel = UIHostingController(rootView: channels.panel())
+                panel.title = L10n.text("Channel List")
+                panel.sizingOptions = .preferredContentSize
+                panel.safeAreaRegions = []
+                tabs.append(panel)
+            }
             if let episodes {
                 let panel = UIHostingController(rootView: episodes.panel())
                 panel.title = L10n.text("Episodes")
@@ -939,12 +978,19 @@ private struct NativePlayerView: UIViewControllerRepresentable {
             let options = Self.speeds.map { rate in UIAction(title: Self.speedLabel(rate), state: rate == speed ? .on : .off) { _ in setSpeed(rate) } }
             items.append(UIMenu(title: L10n.text("Playback Speed") + " · " + Self.speedLabel(speed), image: UIImage(systemName: "gauge.with.dots.needle.67percent"), children: options))
         }
+        if lines.count > 1 {
+            let choose = chooseLine, line = line
+            items.append(UIMenu(title: L10n.text("Lines"), image: UIImage(systemName: "point.3.connected.trianglepath.dotted"),
+                                children: lines.enumerated().map { index, title in
+                                    UIAction(title: title, state: index == line ? .on : .off) { _ in choose(index) }
+                                }))
+        }
         if let previous {
-            items.insert(UIAction(title: L10n.text("Previous Episode"), subtitle: previous.name, image: UIImage(systemName: "backward.end.fill"),
+            items.insert(UIAction(title: previous.channel ? L10n.text("Previous Channel") : L10n.text("Previous Episode"), subtitle: previous.name, image: UIImage(systemName: "backward.end.fill"),
                                   attributes: previous.busy ? [.disabled] : []) { _ in previous.play() }, at: 0)
         }
         if let next {
-            items.insert(UIAction(title: L10n.text("Next Episode"), subtitle: next.name, image: UIImage(systemName: "forward.end.fill"),
+            items.insert(UIAction(title: next.channel ? L10n.text("Next Channel") : L10n.text("Next Episode"), subtitle: next.name, image: UIImage(systemName: "forward.end.fill"),
                                   attributes: next.busy ? [.disabled] : []) { _ in next.play() }, at: previous == nil ? 0 : 1)
         }
         if let episodes {
@@ -1248,11 +1294,26 @@ private struct NativePlayerView: UIViewControllerRepresentable {
         return false
     }
 
+    /// The picture's size, once known.
+    private var videoSize: NSSize?
+    /// Fill Window (#978): the picture fills whatever shape the window has, so the window resizes freely, to any
+    /// shape, as in VLC. Turning it off gives the window the picture's shape again and locks it.
+    var fillsFrame = false {
+        didSet {
+            guard fillsFrame != oldValue else { return }
+            // Resize increments and an aspect ratio cancel each other: increments of 1 unlock the shape.
+            if fillsFrame { contentResizeIncrements = NSSize(width: 1, height: 1) }
+            else if let videoSize { fit(toVideo: videoSize) }
+        }
+    }
+
     /// Sizes the window to the picture and keeps its shape while it is resized (#689), so there are no black bars to
     /// drag away. A video of the shape the window already has leaves the size the viewer chose alone; full screen and
-    /// a zoomed window are left as they are.
+    /// a zoomed window are left as they are, and so is a window the picture fills (#978).
     func fit(toVideo video: NSSize) {
         guard video.width > 0, video.height > 0, video.width.isFinite, video.height.isFinite else { return }
+        videoSize = video
+        guard !fillsFrame else { return }
         contentAspectRatio = video
         guard !styleMask.contains(.fullScreen), !isZoomed, let contentView else { return }
         let current = contentView.bounds.size
@@ -1348,7 +1409,7 @@ private struct NativePlayerView: UIViewControllerRepresentable {
 /// The faster speed while the right arrow is held, at the top as on iPhone. A view of its own, so a hold redraws
 /// only this.
 private struct DesktopBoostLabel: View {
-    let session: PlaybackSession
+    @ObservedObject var session: PlaybackSession
 
     var body: some View {
         if let rate = session.boost {
@@ -1389,14 +1450,15 @@ private struct DesktopPlaybackView: View {
     let window: PlaybackWindow
     @State private var fillsFrame = false
     @State private var floats = false
-    @State private var idle = ChromeIdle()
+    @StateObject private var idle = ChromeIdle()
     @AppStorage(DanmakuPreference.key) private var showsDanmaku = true
     @State private var showsDanmakuList = false
     @State private var showsDanmakuSettings = false
     @State private var showsEpisodes = false
+    @State private var showsChannels = false
     @AppStorage(PlaybackInfo.key) private var showsPlaybackInfo = false
     /// Devices with Yingxia open, for the Play On button; and the one the video was sent to.
-    @State private var tvBrowser = PlayOnBrowser()
+    @StateObject private var tvBrowser = PlayOnBrowser()
     @State private var playingOn: String?
     @State private var importsSubtitleFile = false
     @State private var asksSubtitleAddress = false
@@ -1450,6 +1512,8 @@ private struct DesktopPlaybackView: View {
         .onChange(of: showsDanmaku) { value in session.catalogDanmaku.enabled = value }
         .onChange(of: session.catalogDanmaku.enabled) { value in showsDanmaku = value }
         .onChange(of: floats) { value in window.level = value ? .floating : .normal }
+        .onChange(of: fillsFrame) { value in window.fillsFrame = value }
+        .onAppear { window.fillsFrame = fillsFrame }
         // Each picture that appears (the next episode too) shapes the window; the size arrives a moment after it.
         .task(id: session.showsPicture) {
             guard session.showsPicture else { return }
@@ -1467,6 +1531,7 @@ private struct DesktopPlaybackView: View {
         // Played here again (Space, say): the other device no longer has it to itself.
         .onChange(of: session.paused) { paused in if !paused { playingOn = nil } }
         .playerEpisodesSheet(isPresented: $showsEpisodes, channel: channel)
+        .playerChannelsSheet(isPresented: $showsChannels, channel: channel, session: session)
         .sheet(isPresented: $showsDanmakuList) {
             DanmakuListView(player: session.player, comments: session.danmaku) { showsDanmakuList = false }
                 .danmakuListPresentation()
@@ -1502,15 +1567,22 @@ private struct DesktopPlaybackView: View {
                         barButton("goforward.10", L10n.text("Forward 10 seconds (→)")) { session.skip(10) }
                     }
                     if let previous = store.step(back: true, from: channel, session: session) {
-                        barButton("backward.end.fill", L10n.text("Previous Episode"), help: previous.name) { previous.go() }
+                        barButton("backward.end.fill", previous.title(back: true), help: previous.name) { previous.go() }
                             .disabled(previous.busy)
                     }
                     if let next = store.step(back: false, from: channel, session: session) {
-                        barButton("forward.end.fill", L10n.text("Next Episode"), help: next.name) { next.go() }
+                        barButton("forward.end.fill", next.title(back: false), help: next.name) { next.go() }
                             .disabled(next.busy)
                     }
                     PlayerEpisodesButton(channel: channel, isPresented: $showsEpisodes) {
                         Image(systemName: PlayerEpisodesSheet.symbol).font(.system(size: 14, weight: .medium))
+                            .frame(width: 34, height: 34)
+                            .glassSurface(.regular.interactive(), in: Circle())
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    PlayerChannelsButton(channel: channel, session: session, isPresented: $showsChannels) {
+                        Image(systemName: PlayerChannelsSheet.symbol).font(.system(size: 14, weight: .medium))
                             .frame(width: 34, height: 34)
                             .glassSurface(.regular.interactive(), in: Circle())
                             .contentShape(Circle())
@@ -1734,7 +1806,7 @@ private final class PassthroughHostingView<Content: View>: NSHostingView<Content
 #if !os(tvOS)
 /// Automatic, or one of the stream's qualities, best first.
 struct QualityPicker: View {
-    let session: PlaybackSession
+    @ObservedObject var session: PlaybackSession
     var body: some View {
         Picker(L10n.text("Quality"), selection: Binding(get: { session.quality ?? 0 }, set: { session.choose(quality: $0 == 0 ? nil : $0) })) {
             Text(L10n.text("Auto")).tag(0)
@@ -1750,7 +1822,18 @@ struct QualityPicker: View {
 struct PlayerStep {
     let name: String
     let busy: Bool
+    /// A live channel of the list it was picked from, not an episode or a file (#1010).
+    var channel = false
     let go: @MainActor () -> Void
+
+    func title(back: Bool) -> String {
+        switch (channel, back) {
+        case (true, true): L10n.text("Previous Channel")
+        case (true, false): L10n.text("Next Channel")
+        case (false, true): L10n.text("Previous Episode")
+        case (false, false): L10n.text("Next Episode")
+        }
+    }
 }
 
 extension Store {
@@ -1764,6 +1847,9 @@ extension Store {
             return PlayerStep(name: file.name, busy: false) { [weak self] in
                 if back || !session.playUpcoming() { self?.playing = file }
             }
+        }
+        if let other = lineup(for: channel)?.neighbor(of: channel, back: back) {
+            return PlayerStep(name: other.name, busy: false, channel: true) { [weak self] in self?.playing = other }
         }
         return nil
     }
@@ -1919,7 +2005,7 @@ struct PlayerTitleLogo: View {
     /// A phone held upright: a smaller logo.
     var compact = false
     @EnvironmentObject private var store: Store
-    @State private var tmdb = TMDBLookup()
+    @StateObject private var tmdb = TMDBLookup()
     @State private var aspect: CGFloat?
 
     var body: some View {
@@ -1968,8 +2054,8 @@ struct PlayerTitleLogo: View {
 /// controls and menus, and takes no focus.
 struct TVPlayerTitleRow: View {
     let channel: Channel
-    let session: PlaybackSession
-    let transportBar: TransportBarVisibility
+    @ObservedObject var session: PlaybackSession
+    @ObservedObject var transportBar: TransportBarVisibility
 
     var body: some View {
         let shows = transportBar.visible && session.showsPicture && session.error == nil
